@@ -6,6 +6,7 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButtonCmp, SocialMediaButtonCmp } from '../../components';
@@ -68,11 +69,13 @@ const WelcomeView = () => {
                 navigation.navigate('SignUpView' as never);
               }}
             />
-            <SocialMediaButtonCmp
-              icon={'apple'}
-              text={'Sign up with Apple'}
-              disabled
-            />
+            {Platform.OS === 'ios' && (
+              <SocialMediaButtonCmp
+                icon={'apple'}
+                text={'Sign up with Apple'}
+                disabled
+              />
+            )}
             <SocialMediaButtonCmp
               icon={'google'}
               text={loading ? 'Signing up with Google...' : 'Sign up with Google'}
