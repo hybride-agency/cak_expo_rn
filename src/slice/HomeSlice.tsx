@@ -2,7 +2,7 @@ import {createAsyncThunk, createSlice} from '@reduxjs/toolkit';
 import axiosInstance from '../axiosConfig';
 import {getApiErrorMessage} from '../utils/apiError';
 import type {FitnessPlan, MealEntry, MealPlan} from '../types/plans';
-import type {HomepageData, MobilePlansData, ProfileData} from '../types/home';
+import type {CurrentPlanData, HomepageData, MobilePlansData, ProfileData} from '../types/home';
 
 export const getHomepage = createAsyncThunk(
   'home/getHomepage',
@@ -29,6 +29,20 @@ export const getProfile = createAsyncThunk(
     } catch (error: unknown) {
       return rejectWithValue(
         getApiErrorMessage(error, 'Failed to load profile'),
+      );
+    }
+  },
+);
+
+export const getCurrentPlan = createAsyncThunk(
+  'home/getCurrentPlan',
+  async (_, {rejectWithValue}) => {
+    try {
+      const response = await axiosInstance.get('/auth/current-plan');
+      return response.data;
+    } catch (error: unknown) {
+      return rejectWithValue(
+        getApiErrorMessage(error, 'Failed to load current plan'),
       );
     }
   },
@@ -165,6 +179,8 @@ interface HomeState {
   mobilePlans: MobilePlansData | null;
   mealPlan: MealPlan | null;
   fitnessPlan: FitnessPlan | null;
+  currentPlan: CurrentPlanData | null;
+  currentPlanLoading: boolean;
 }
 
 const initialState: HomeState = {
@@ -177,6 +193,8 @@ const initialState: HomeState = {
   mobilePlans: null,
   mealPlan: null,
   fitnessPlan: null,
+  currentPlan: null,
+  currentPlanLoading: false,
 };
 
 const homeSlice = createSlice({
@@ -214,6 +232,16 @@ const homeSlice = createSlice({
         state.loading = false;
         state.refreshing = false;
         state.error = action.payload as string;
+      })
+      .addCase(getCurrentPlan.pending, state => {
+        state.currentPlanLoading = true;
+      })
+      .addCase(getCurrentPlan.fulfilled, (state, action) => {
+        state.currentPlanLoading = false;
+        state.currentPlan = action.payload?.data?.current_plan ?? null;
+      })
+      .addCase(getCurrentPlan.rejected, state => {
+        state.currentPlanLoading = false;
       })
       .addCase(getMobilePlans.fulfilled, (state, action) => {
         state.mobilePlans = action.payload?.data ?? action.payload;

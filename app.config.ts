@@ -37,6 +37,7 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.cakfit',
     buildNumber: '1',
     supportsTablet: false,
+    associatedDomains: ['applinks:cak.fit'],
     config: {
       usesNonExemptEncryption: false,
     },
@@ -65,6 +66,8 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     ['expo-font', {fonts: ralewayFonts}],
     ['expo-secure-store', {configureAndroidBackup: true}],
     ['expo-navigation-bar', {hidden: true}],
+    'expo-web-browser',
+    'expo-image',
     ...(googleIosUrlScheme
       ? [
           [

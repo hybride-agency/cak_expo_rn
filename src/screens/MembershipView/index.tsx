@@ -1,5 +1,6 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -10,10 +11,14 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Path} from 'react-native-svg';
-import {useAppSelector} from '../../store';
+import {useAppDispatch, useAppSelector} from '../../store';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import type {ProfileStackParamList} from '../../navigation/MainStack';
+import {getCurrentPlan} from '../../slice/HomeSlice';
+import {getSubscriptionHistory} from '../../slice/SubscriptionHistorySlice';
+import {useWhishCheckout} from '../../hooks/useWhishCheckout';
+import {WhishPaymentOverlay} from '../../components';
 
 const ACCENT = '#8FFF19';
 const BACKGROUND = '#171717';
@@ -22,7 +27,31 @@ const {width} = Dimensions.get('window');
 type Props = NativeStackScreenProps<ProfileStackParamList, 'MembershipView'>;
 
 const MembershipView = ({navigation}: Props) => {
-  const {homepage, profile} = useAppSelector(state => state.home);
+  const dispatch = useAppDispatch();
+  const {homepage, profile, currentPlan} = useAppSelector(state => state.home);
+  const {history} = useAppSelector(state => state.subscriptionHistory);
+  const {
+    status: checkoutStatus,
+    error: checkoutError,
+    startRenewal,
+    reset: resetCheckout,
+  } = useWhishCheckout();
+
+  useEffect(() => {
+    dispatch(getCurrentPlan());
+    dispatch(getSubscriptionHistory());
+  }, [dispatch]);
+
+  const renewTargetUserPlanId = currentPlan?.user_plan_id ?? history[0]?.id ?? null;
+  const isRenewing = checkoutStatus === 'opening' || checkoutStatus === 'polling';
+
+  const handleRenew = () => {
+    if (!renewTargetUserPlanId || isRenewing) {
+      return;
+    }
+    void startRenewal(renewTargetUserPlanId);
+  };
+
   const subscription =
     profile?.current_subscription ||
     profile?.subscription ||
@@ -108,10 +137,36 @@ const MembershipView = ({navigation}: Props) => {
                 onPress={() => navigation.navigate('SubscriptionHistoryView')}>
                 here
               </Text>
+              {' '}or your payment attempts{' '}
+              <Text
+                style={styles.linkText}
+                onPress={() => navigation.navigate('PaymentHistoryView')}>
+                here
+              </Text>
             </Text>
+
+            {renewTargetUserPlanId ? (
+              <TouchableOpacity
+                style={styles.renewButton}
+                disabled={isRenewing}
+                onPress={handleRenew}>
+                {isRenewing ? (
+                  <ActivityIndicator size="small" color={BACKGROUND} />
+                ) : (
+                  <Text style={styles.renewButtonText}>Renew subscription</Text>
+                )}
+              </TouchableOpacity>
+            ) : null}
           </View>
         </ScrollView>
       </View>
+
+      <WhishPaymentOverlay
+        status={checkoutStatus}
+        errorMessage={checkoutError}
+        onRetry={handleRenew}
+        onDismiss={resetCheckout}
+      />
     </SafeAreaView>
   );
 };
@@ -173,6 +228,16 @@ const styles = StyleSheet.create({
   boldText: {color: '#FFF', fontFamily: 'Raleway-Bold'},
   renewNote: {color: '#BBB', fontSize: 14, fontFamily: 'Raleway-Medium', textAlign: 'center'},
   linkText: {color: '#FFF', textDecorationLine: 'underline', fontFamily: 'Raleway-Bold'},
+  renewButton: {
+    marginTop: 24,
+    width: '100%',
+    paddingVertical: 18,
+    backgroundColor: ACCENT,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  renewButtonText: {color: BACKGROUND, fontSize: 15, fontFamily: 'Raleway-Bold'},
 });
 
 export default MembershipView;

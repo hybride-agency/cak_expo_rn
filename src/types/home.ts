@@ -107,3 +107,18 @@ export interface MobilePlansData {
   plans?: ApiItem[];
   section?: ApiItem;
 }
+
+export interface CurrentPlanData {
+  user_plan_id: number;
+  plan_id: number;
+  image_url: string | null;
+  name: string;
+  description: string | null;
+  features: string | null;
+  terms: string | null;
+  status: string;
+  amount_paid: number | string;
+  currency: string;
+  start_date: string | null;
+  end_date: string | null;
+}

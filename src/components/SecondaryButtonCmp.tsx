@@ -4,11 +4,15 @@ import React from 'react';
 interface SecondaryButtonCmpProps {
   text: string;
   onPress: () => void;
+  disabled?: boolean;
 }
 
-const SecondaryButtonCmp = ({ text, onPress }: SecondaryButtonCmpProps) => {
+const SecondaryButtonCmp = ({ text, onPress, disabled = false }: SecondaryButtonCmpProps) => {
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress}>
+    <TouchableOpacity
+      style={[styles.container, disabled && styles.containerDisabled]}
+      onPress={onPress}
+      disabled={disabled}>
       <Text style={styles.text}>{text}</Text>
     </TouchableOpacity>
   );
@@ -24,6 +28,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     width: 175,
+  },
+  containerDisabled: {
+    opacity: 0.4,
   },
   text: {
     fontSize: 16,

@@ -61,8 +61,17 @@ const DropDownPickerCmp = ({
     return selectedItems.some(selected => selected.id === item.id);
   };
 
-  // Call callback whenever selection changes
+  // Call callback whenever the user actually changes the selection. Skips
+  // the initial mount (selectedItems starts at []), which previously fired
+  // onSelectionChange([]) immediately and seeded a false "answered with
+  // nothing" entry before the user touched the list.
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     if (onSelectionChange) {
       const selectedIds = selectedItems.map(item => String(item.id));
       onSelectionChange(selectedIds);

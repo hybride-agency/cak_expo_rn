@@ -23,6 +23,7 @@ import {
   MealPlannerView,
   MembershipView,
   NotificationsView,
+  PaymentHistoryView,
   PersonalDataView,
   PrivacyPolicyView,
   ProfileView,
@@ -68,6 +69,7 @@ export type ProfileStackParamList = {
   MembershipView: undefined;
   PersonalDataView: undefined;
   SubscriptionHistoryView: undefined;
+  PaymentHistoryView: undefined;
 };
 
 export type MainTabParamList = {
@@ -231,6 +233,11 @@ const ProfileNavigator = () => (
     <ProfileStack.Screen
       name="SubscriptionHistoryView"
       component={SubscriptionHistoryView}
+      options={screenOptions}
+    />
+    <ProfileStack.Screen
+      name="PaymentHistoryView"
+      component={PaymentHistoryView}
       options={screenOptions}
     />
   </ProfileStack.Navigator>

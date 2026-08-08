@@ -8,20 +8,20 @@ import {
   FlatList,
 } from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { PlanRulesCmp, PrimaryButtonCmp } from '../../components';
+import { PlanRulesCmp, PrimaryButtonCmp, WhishPaymentOverlay } from '../../components';
 import { useNavigation } from '@react-navigation/native';
 import {RootState, useAppDispatch} from '../../store';
 import {useSelector} from 'react-redux';
 import { SCREEN_PADDING } from '../../../theme';
-import { buyPlan, getPlanPrice } from '../../slice/PlanSlice';
+import { getPlanPrice } from '../../slice/PlanSlice';
 import { setIsPlan, setIsQuestion, setIsWelcome } from '../../slice/WelcomeSlice';
 import { PlanPrice } from '../../../global';
 import Small_Check_Logo_SVG from '../../../assets/SVG/Small_Check_Logo_SVG';
 import Arrow_Back_Logo_SVG from '../../../assets/SVG/Arrow_Back_Logo_SVG';
-import { getProfile } from '../../slice/HomeSlice';
 import { hydrateLoginSession } from '../../slice/LoginSlice';
 import { setUser } from '../../slice/SignUpSlice';
 import { saveAuthSession } from '../../utils/authSession';
+import { useWhishCheckout } from '../../hooks/useWhishCheckout';
 
 const PlanView = () => {
   const navigation = useNavigation();
@@ -29,17 +29,23 @@ const PlanView = () => {
 
   const section = useSelector((state: RootState) => state.plan.section);
   const loading = useSelector((state: RootState) => state.plan.loading);
-  const purchaseLoading = useSelector(
-    (state: RootState) => state.plan.purchaseLoading,
-  );
   const loginUser = useSelector((state: RootState) => state.login.user);
   const token = useSelector((state: RootState) => state.signUp.token);
+  const profile = useSelector((state: RootState) => state.home.profile);
   const selectedPlanId = useSelector(
     (state: RootState) => state.plan.selectedPlanId,
   );
   const [planPrice, setPlanPrice] = useState<PlanPrice | null>(null);
   const [arrayFeatures, setArrayFeatures] = useState<string[]>([]);
   const [selectedPricingId, setSelectedPricingId] = useState<number | null>(null);
+
+  const {
+    status: checkoutStatus,
+    error: checkoutError,
+    startPurchase,
+    reset: resetCheckout,
+  } = useWhishCheckout();
+  const purchaseLoading = checkoutStatus === 'opening' || checkoutStatus === 'polling';
 
   const fetchPlanPrice = useCallback(async () => {
     const response = await dispatch(
@@ -67,62 +73,40 @@ const PlanView = () => {
       return;
     }
 
-    const purchaseResponse = await dispatch(
-      buyPlan({
-        plan_id: planPrice.id,
-        plan_pricing_id: pricing.id,
-        amount_paid: pricing.price,
-        currency: pricing.currency || 'USD',
-      }),
-    );
-
-    if (buyPlan.fulfilled.match(purchaseResponse)) {
-      const profileResponse = await dispatch(
-        getProfile(),
-      );
-      const profileData =
-        getProfile.fulfilled.match(profileResponse)
-          ? profileResponse.payload?.data ?? profileResponse.payload
-          : null;
-      const nextLoginUser = {
-        ...(loginUser || {}),
-        data: {
-          ...(loginUser?.data || {}),
-          user: profileData?.user ?? loginUser?.data?.user,
-          active_plan:
-            profileData?.active_plan ??
-            purchaseResponse.payload?.data?.active_plan ??
-            purchaseResponse.payload?.data ??
-            loginUser?.data?.active_plan,
-        },
-      };
-
-      dispatch(
-        hydrateLoginSession({
-          isLoggedIn: true,
-          user: nextLoginUser,
-        }),
-      );
-      dispatch(
-        setUser({
-          token,
-          action_plan: profileData?.active_plan?.alias ?? planPrice.alias,
-        }),
-      );
-      await saveAuthSession({
-        token,
-        action_plan: profileData?.active_plan?.alias ?? planPrice.alias,
-        loginUser: nextLoginUser,
-        isLoggedIn: true,
-        isWelcome: false,
-        isQuestion: false,
-        isPlan: false,
-      });
-      dispatch(setIsPlan(false));
-      dispatch(setIsQuestion(false));
-      dispatch(setIsWelcome(false));
-    }
+    await startPurchase(planPrice.id, pricing.id);
   };
+
+  useEffect(() => {
+    if (checkoutStatus !== 'succeeded') {
+      return;
+    }
+
+    const nextLoginUser = {
+      ...(loginUser || {}),
+      data: {
+        ...(loginUser?.data || {}),
+        user: profile?.user ?? loginUser?.data?.user,
+        active_plan: profile?.active_plan ?? loginUser?.data?.active_plan,
+      },
+    };
+    const actionPlan = profile?.active_plan?.alias ?? planPrice?.alias ?? '';
+
+    dispatch(hydrateLoginSession({isLoggedIn: true, user: nextLoginUser}));
+    dispatch(setUser({token, action_plan: actionPlan}));
+    void saveAuthSession({
+      token,
+      action_plan: actionPlan,
+      loginUser: nextLoginUser,
+      isLoggedIn: true,
+      isWelcome: false,
+      isQuestion: false,
+      isPlan: false,
+    });
+    dispatch(setIsPlan(false));
+    dispatch(setIsQuestion(false));
+    dispatch(setIsWelcome(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutStatus]);
 
   return (
     <View style={styles.container}>
@@ -266,6 +250,13 @@ const PlanView = () => {
           </View>
         </>
       )}
+
+      <WhishPaymentOverlay
+        status={checkoutStatus}
+        errorMessage={checkoutError}
+        onRetry={handleStartTrial}
+        onDismiss={resetCheckout}
+      />
     </View>
   );
 };

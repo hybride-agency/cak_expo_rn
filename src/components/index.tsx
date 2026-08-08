@@ -11,3 +11,4 @@ export { default as DropDownPickerCmp } from './DropDownPickerCmp';
 export { default as MultiSelectionPickerCmp } from './MultiSelectionPickerCmp';
 export { default as PlanRulesCmp } from './PlanRulesCmp';
 export { default as ProgressBar } from './ProgressBar';
+export { default as WhishPaymentOverlay } from './WhishPaymentOverlay';
