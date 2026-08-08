@@ -64,6 +64,7 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     ],
     ['expo-font', {fonts: ralewayFonts}],
     ['expo-secure-store', {configureAndroidBackup: true}],
+    ['expo-navigation-bar', {hidden: true}],
     ...(googleIosUrlScheme
       ? [
           [

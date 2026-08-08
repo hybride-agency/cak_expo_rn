@@ -5,7 +5,8 @@
  * @format
  */
 
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { NavigationBar } from 'expo-navigation-bar';
 import AuthNavigator from './src/navigation/AuthenticationStack';
 import { NavigationContainer } from '@react-navigation/native';
 import TutorialNavigator from './src/navigation/TutorialStack';
@@ -132,6 +133,7 @@ function App() {
     <GestureHandlerRootView style={styles.appRoot}>
       <SafeAreaProvider>
         <Provider store={store}>
+          {Platform.OS === 'android' && <NavigationBar hidden />}
           <StatusBar style="light" />
           <AppContent />
         </Provider>
