@@ -21,6 +21,7 @@ import {
   FitnessPlanView,
   HomepageListView,
   MealPlannerView,
+  MealDetailsView,
   MembershipView,
   NotificationsView,
   PaymentHistoryView,
@@ -35,7 +36,7 @@ import {
 import {useAppSelector} from '../store';
 import type {RouteProp} from '@react-navigation/native';
 import type {AuthResponse, UserProfile} from '../types/auth';
-import type {WorkoutExercise, WorkoutSection} from '../types/plans';
+import type {WorkoutExercise, WorkoutSection, DisplayMeal} from '../types/plans';
 
 const ACCENT = '#8FFF19';
 
@@ -54,6 +55,7 @@ export type HomeStackParamList = {
 
 export type MealStackParamList = {
   MealPlannerView: undefined;
+  MealDetailsView: {meal: DisplayMeal};
 };
 
 export type WorkoutStackParamList = {
@@ -158,6 +160,11 @@ const MealNavigator = () => (
     <MealStack.Screen
       name="MealPlannerView"
       component={MealPlannerView}
+      options={screenOptions}
+    />
+    <MealStack.Screen
+      name="MealDetailsView"
+      component={MealDetailsView}
       options={screenOptions}
     />
   </MealStack.Navigator>
@@ -315,7 +322,8 @@ const TabIcon = ({tabKey, focused}: {tabKey: TabKey; focused: boolean}) => (
 
 const shouldHideTabBar = (route: RouteProp<MainTabParamList>) => {
   const focusedRouteName = getFocusedRouteNameFromRoute(route);
-  return focusedRouteName ? WORKOUT_FLOW_ROUTES.has(focusedRouteName) : false;
+  if (!focusedRouteName) return false;
+  return WORKOUT_FLOW_ROUTES.has(focusedRouteName) || focusedRouteName === 'MealDetailsView';
 };
 
 const getEnabledTabs = (planAlias: string): TabKey[] => {

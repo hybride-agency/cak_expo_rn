@@ -13,7 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { SCREEN_PADDING } from '../../../theme';
-import { clearError, googleAuthUser, loginUser } from '../../slice/LoginSlice';
+import {
+  appleAuthUser,
+  clearError,
+  googleAuthUser,
+  loginUser,
+} from '../../slice/LoginSlice';
 import Close_Logo_SVG from '../../../assets/SVG/Close_Logo_SVG';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -25,6 +30,7 @@ import Eye_Closed_SVG from '../../../assets/SVG/Eye_Closed_SVG';
 import Eye_Open_SVG from '../../../assets/SVG/Eye_Open_SVG';
 import { completeAuthSession } from '../../utils/completeAuthSession';
 import { getGoogleAuthPayload } from '../../utils/googleSignIn';
+import { getAppleAuthPayload } from '../../utils/appleSignIn';
 
 const LoginView = () => {
   const dispatch = useAppDispatch();
@@ -37,6 +43,7 @@ const LoginView = () => {
   const [passwordError, setPasswordError] = useState<string>('');
   const [validationError, setValidationError] = useState<string>('');
   const [googleError, setGoogleError] = useState<string>('');
+  const [appleError, setAppleError] = useState<string>('');
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
 
   const validateEmail = (value: string): boolean => {
@@ -49,6 +56,7 @@ const LoginView = () => {
     setPasswordError('');
     setValidationError('');
     setGoogleError('');
+    setAppleError('');
     dispatch(clearError());
   };
 
@@ -118,6 +126,31 @@ const LoginView = () => {
     }
   };
 
+  const handleAppleLogin = async () => {
+    clearErrors();
+
+    if (loading) {
+      return;
+    }
+
+    try {
+      const applePayload = await getAppleAuthPayload();
+
+      if (!applePayload) {
+        return;
+      }
+
+      const result = await dispatch(appleAuthUser(applePayload));
+
+      if (appleAuthUser.fulfilled.match(result)) {
+        await completeAuthSession(dispatch, result?.payload);
+      }
+    } catch (error: unknown) {
+      setAppleError(error instanceof Error ? error.message : 'Apple sign-in failed');
+      console.error('Apple login error:', error);
+    }
+  };
+
   // Clear validation errors when user starts typing
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -161,8 +194,11 @@ const LoginView = () => {
               {Platform.OS === 'ios' && (
                 <SocialMediaButtonCmp
                   icon={'apple'}
-                  text={'Sign in with Apple'}
-                  disabled
+                  text={
+                    loading ? 'Signing in with Apple...' : 'Sign in with Apple'
+                  }
+                  onPress={handleAppleLogin}
+                  disabled={loading}
                 />
               )}
               <SocialMediaButtonCmp
@@ -207,9 +243,11 @@ const LoginView = () => {
               )}
             </View>
 
-            {(apiError || googleError) && (
+            {(apiError || googleError || appleError) && (
               <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{apiError || googleError}</Text>
+                <Text style={styles.errorText}>
+                  {apiError || googleError || appleError}
+                </Text>
               </View>
             )}
 

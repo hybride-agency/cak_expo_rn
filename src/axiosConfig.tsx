@@ -180,6 +180,7 @@ axiosInstance.interceptors.response.use(
 
     // Show error modal for various error types
     let errorMessage = 'An unexpected error occurred. Please try again.';
+    let shouldShowModal = true;
     
     if (error.response) {
       // Server responded with error status
@@ -189,6 +190,15 @@ axiosInstance.interceptors.response.use(
       switch (status) {
         case 400:
           errorMessage = data?.message || 'Bad request. Please check your input.';
+          break;
+        case 422:
+          errorMessage = data?.message || 'Validation failed. Please check your input.';
+          if (data?.errors) {
+            const firstErrorKey = Object.keys(data.errors)[0];
+            if (firstErrorKey) {
+              errorMessage = data.errors[firstErrorKey][0];
+            }
+          }
           break;
         case 401:
           errorMessage = 'Authentication failed. Please log in again.';
@@ -215,17 +225,8 @@ axiosInstance.interceptors.response.use(
           return Promise.reject(error);
         case 403:
           errorMessage = 'Access denied. You don\'t have permission for this action.';
-          // Only trigger global logout for non-login requests
-          if (!originalRequest.url?.includes('/auth/login')) {
-            clearAuthSession().catch(sessionError => {
-              console.log('Failed to clear saved auth session:', sessionError);
-            });
-            store.dispatch(logout());
-            store.dispatch(clearUser());
-            store.dispatch(setIsQuestion(false));
-            store.dispatch(setIsPlan(false));
-            store.dispatch(setIsWelcome(true));
-            showErrorModal(errorMessage);
+          if (originalRequest.url?.includes('/mobile/fitness-plan') || originalRequest.url?.includes('/mobile/meal-plan')) {
+            shouldShowModal = false;
           }
           break;
         case 404:
@@ -246,7 +247,9 @@ axiosInstance.interceptors.response.use(
     }
 
     // Show error modal
-    showErrorModal(errorMessage);
+    if (shouldShowModal) {
+      showErrorModal(errorMessage);
+    }
 
     return Promise.reject(error);
   },

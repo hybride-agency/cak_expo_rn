@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Switch} from 'react-native';
+import {Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Switch, Modal, ActivityIndicator, Platform, KeyboardAvoidingView, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {logout} from '../../slice/LoginSlice';
 import {clearUser} from '../../slice/SignUpSlice';
@@ -11,6 +11,10 @@ import {useNavigation} from '@react-navigation/native';
 import Svg, {Path, Circle, Rect} from 'react-native-svg';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import * as ImagePicker from 'expo-image-picker';
+import axiosInstance from '../../axiosConfig';
 
 import type {ProfileStackParamList} from '../../navigation/MainStack';
 
@@ -46,6 +50,8 @@ const ProfileView = () => {
   );
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isLogoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     dispatch(getProfile());
@@ -68,12 +74,82 @@ const ProfileView = () => {
   };
 
   const handleLogout = async () => {
-    await clearAuthSession();
-    dispatch(logout());
-    dispatch(clearUser());
-    dispatch(setIsQuestion(false));
-    dispatch(setIsPlan(false));
-    dispatch(setIsWelcome(true));
+    try {
+      setLoggingOut(true);
+      // 1. Delete push token for this specific device
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      if (projectId) {
+        const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+        if (token) {
+          await axiosInstance.delete('/auth/push-tokens', { data: { token } });
+        }
+      }
+
+      // 2. Call backend logout to invalidate Sanctum session
+      await axiosInstance.post('/auth/logout');
+    } catch (e) {
+      console.log('Error during backend logout:', e);
+    } finally {
+      // 3. Clear local session & state
+      await clearAuthSession();
+      dispatch(logout());
+      dispatch(clearUser());
+      dispatch(setIsQuestion(false));
+      dispatch(setIsPlan(false));
+      dispatch(setIsWelcome(true));
+    }
+  };
+
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleEditProfilePicture = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission needed', 'Please grant permission to access your photos to change your profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setUploadingImage(true);
+
+      const formData = new FormData();
+      const uri = asset.uri;
+      const fileExtension = uri.split('.').pop() || 'jpeg';
+      const fileName = uri.split('/').pop() || `profile_image.${fileExtension}`;
+      
+      formData.append('image', {
+        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
+        name: fileName,
+        type: `image/${fileExtension}`,
+      } as any);
+
+      await axiosInstance.post('/auth/profile/image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Refresh profile data to show new image
+      dispatch(getProfile());
+    } catch (error) {
+      console.error('Failed to upload profile picture', error);
+      Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -96,14 +172,28 @@ const ProfileView = () => {
           </View>
 
           <View style={styles.profileCard}>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity 
+              activeOpacity={0.8} 
+              style={styles.avatarContainer}
+              onPress={handleEditProfilePicture}
+              disabled={uploadingImage}
+            >
               <Image source={user?.image_url ? {uri: user.image_url} : FALLBACK_AVATAR} style={styles.avatar} />
-              <View style={styles.editBadge}>
-                <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                  <Path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              </View>
-            </View>
+              
+              {uploadingImage && (
+                <View style={[styles.avatar, styles.uploadingOverlay]}>
+                  <ActivityIndicator color="#FFF" />
+                </View>
+              )}
+
+              {!uploadingImage && (
+                <View style={styles.editBadge}>
+                  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                    <Path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </View>
+              )}
+            </TouchableOpacity>
             <View style={styles.profileInfo}>
               <Text style={styles.name}>
                 {user?.name || user?.email || 'CAK member'}
@@ -145,11 +235,61 @@ const ProfileView = () => {
             <MenuItem label="About Us" icon={<AboutIcon />} onPress={() => navigation.navigate('AboutUsView')} noBorder />
           </View>
 
-          <TouchableOpacity activeOpacity={0.9} style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity activeOpacity={0.9} style={styles.logoutButton} onPress={() => setLogoutModalVisible(true)}>
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={isLogoutModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setLogoutModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Log Out</Text>
+              <TouchableOpacity onPress={() => setLogoutModalVisible(false)} style={styles.closeButton}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke="#FFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalForm}>
+              <Text style={styles.modalBodyText}>Are you sure you want to log out of your account?</Text>
+              
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={styles.cancelButton} 
+                  onPress={() => setLogoutModalVisible(false)}
+                  disabled={loggingOut}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.confirmLogoutButton} 
+                  onPress={handleLogout}
+                  disabled={loggingOut}
+                >
+                  {loggingOut ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.confirmLogoutText}>Log Out</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -232,6 +372,7 @@ const styles = StyleSheet.create({
   profileCard: {backgroundColor: '#1E1E1E', borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 24},
   avatarContainer: {position: 'relative', marginRight: 20},
   avatar: {width: 80, height: 80, borderRadius: 40, backgroundColor: '#3A3A3A'},
+  uploadingOverlay: {position: 'absolute', backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center'},
   editBadge: {position: 'absolute', right: 0, bottom: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#1E1E1E'},
   profileInfo: {flex: 1},
   name: {color: '#FFF', fontSize: 24, fontFamily: 'Raleway-Black', marginBottom: 4},
@@ -248,6 +389,19 @@ const styles = StyleSheet.create({
 
   logoutButton: {backgroundColor: '#1E1E1E', borderRadius: 20, paddingVertical: 18, alignItems: 'center', marginTop: 10},
   logoutText: {color: '#FF4444', fontSize: 16, fontFamily: 'Raleway-Bold'},
+
+  modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end'},
+  modalContent: {backgroundColor: '#171717', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40},
+  modalHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24},
+  modalTitle: {color: '#FFF', fontSize: 18, fontFamily: 'Raleway-Bold'},
+  closeButton: {padding: 4},
+  modalForm: {},
+  modalBodyText: {color: '#CCC', fontSize: 15, fontFamily: 'Raleway-Medium', marginBottom: 32, lineHeight: 22},
+  modalActions: {flexDirection: 'row', gap: 12},
+  cancelButton: {flex: 1, backgroundColor: '#2C2C2C', paddingVertical: 16, borderRadius: 12, alignItems: 'center'},
+  cancelButtonText: {color: '#FFF', fontSize: 15, fontFamily: 'Raleway-Bold'},
+  confirmLogoutButton: {flex: 1, backgroundColor: '#FF4444', paddingVertical: 16, borderRadius: 12, alignItems: 'center'},
+  confirmLogoutText: {color: '#FFF', fontSize: 15, fontFamily: 'Raleway-Bold'},
 });
 
 export default ProfileView;

@@ -13,8 +13,9 @@ import { PrimaryButtonCmp, SocialMediaButtonCmp } from '../../components';
 import { SCREEN_PADDING } from '../../../theme';
 import { useNavigation } from '@react-navigation/native';
 import {useAppDispatch, useAppSelector} from '../../store';
-import {googleAuthUser} from '../../slice/LoginSlice';
+import {appleAuthUser, googleAuthUser} from '../../slice/LoginSlice';
 import {getGoogleAuthPayload} from '../../utils/googleSignIn';
+import {getAppleAuthPayload} from '../../utils/appleSignIn';
 import {completeAuthSession} from '../../utils/completeAuthSession';
 
 const WelcomeView = () => {
@@ -46,6 +47,31 @@ const WelcomeView = () => {
       );
     }
   };
+
+  const handleAppleSignUp = async () => {
+    if (loading) {
+      return;
+    }
+
+    try {
+      const applePayload = await getAppleAuthPayload();
+
+      if (!applePayload) {
+        return;
+      }
+
+      const result = await dispatch(appleAuthUser(applePayload));
+
+      if (appleAuthUser.fulfilled.match(result)) {
+        await completeAuthSession(dispatch, result.payload);
+      }
+    } catch (error) {
+      Alert.alert(
+        'Apple sign-up failed',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    }
+  };
   return (
     <ImageBackground
       source={require('../../../assets/images/welcomeBackground.png')}
@@ -72,8 +98,11 @@ const WelcomeView = () => {
             {Platform.OS === 'ios' && (
               <SocialMediaButtonCmp
                 icon={'apple'}
-                text={'Sign up with Apple'}
-                disabled
+                text={
+                  loading ? 'Signing up with Apple...' : 'Sign up with Apple'
+                }
+                onPress={handleAppleSignUp}
+                disabled={loading}
               />
             )}
             <SocialMediaButtonCmp

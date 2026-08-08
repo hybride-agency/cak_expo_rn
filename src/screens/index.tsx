@@ -27,3 +27,4 @@ export { default as MembershipView } from './MembershipView';
 export { default as PersonalDataView } from './PersonalDataView';
 export { default as SubscriptionHistoryView } from './SubscriptionHistoryView';
 export { default as PaymentHistoryView } from './PaymentHistoryView';
+export {default as MealDetailsView} from './MealDetailsView';

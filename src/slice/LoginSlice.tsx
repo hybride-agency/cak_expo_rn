@@ -8,6 +8,12 @@ type GoogleAuthPayload = {
   device_name: string;
 };
 
+type AppleAuthPayload = {
+  token: string;
+  name?: string;
+  device_name: string;
+};
+
 // Define the login async thunk
 export const loginUser = createAsyncThunk(
   'login/loginUser',
@@ -47,6 +53,28 @@ export const googleAuthUser = createAsyncThunk(
       }
       return rejectWithValue(
         getApiErrorMessage(error, 'Google sign-in failed'),
+      );
+    }
+  },
+);
+
+export const appleAuthUser = createAsyncThunk(
+  'login/appleAuthUser',
+  async ({ token, name, device_name }: AppleAuthPayload, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post('/auth/apple', {
+        token,
+        name,
+        device_name,
+      });
+      return response.data;
+    } catch (error: unknown) {
+      const response = getApiErrorResponse(error);
+      if (response?.status === 403 && response.data?.data?.token) {
+        return response.data;
+      }
+      return rejectWithValue(
+        getApiErrorMessage(error, 'Apple sign-in failed'),
       );
     }
   },
@@ -117,6 +145,21 @@ const loginSlice = createSlice({
         state.error = null;
       })
       .addCase(googleAuthUser.rejected, (state, action) => {
+        state.loading = false;
+        state.isLoggedIn = false;
+        state.error = action.payload as string;
+      })
+      .addCase(appleAuthUser.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(appleAuthUser.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isLoggedIn = true;
+        state.user = action.payload;
+        state.error = null;
+      })
+      .addCase(appleAuthUser.rejected, (state, action) => {
         state.loading = false;
         state.isLoggedIn = false;
         state.error = action.payload as string;

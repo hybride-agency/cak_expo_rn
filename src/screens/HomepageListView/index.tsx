@@ -564,7 +564,9 @@ const WaterCard = ({
     <Text style={styles.waterTitle}>Water Intake</Text>
     <View style={styles.glassWrap}>
       <View style={styles.glass}>
-        <View style={[styles.glassFill, {height: `${Math.max(16, (total / Math.max(goal, 1)) * 100)}%`}]} />
+        <View style={styles.glassInner}>
+          <View style={[styles.glassFill, {height: `${Math.min(100, Math.max(16, (total / Math.max(goal, 1)) * 100))}%`}]} />
+        </View>
       </View>
     </View>
     <View style={styles.waterControls}>
@@ -1279,12 +1281,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
+  glassInner: {
+    flex: 1,
+    margin: 2,
+    justifyContent: 'flex-end',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
   glassFill: {
-    position: 'absolute',
-    left: 2,
-    right: 2,
-    bottom: 2,
-    borderRadius: 7,
+    width: '100%',
     backgroundColor: '#6BCFFF',
   },
   waterControls: {

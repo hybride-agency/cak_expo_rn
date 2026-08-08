@@ -25,9 +25,10 @@ import {StatusBar} from 'expo-status-bar';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import { hydrateLoginSession } from './src/slice/LoginSlice';
 import { setUser } from './src/slice/SignUpSlice';
-import { loadAuthSession } from './src/utils/authSession';
+import { clearStaleSessionOnFreshInstall, loadAuthSession } from './src/utils/authSession';
 import { setIsPlan, setIsQuestion, setIsWelcome } from './src/slice/WelcomeSlice';
 import { resumePendingWhishPayment } from './src/utils/resumePendingWhishPayment';
+import { registerForPushNotifications } from './src/utils/pushNotifications';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -45,6 +46,8 @@ function AppContent() {
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
+        await clearStaleSessionOnFreshInstall();
+
         const savedSession = await loadAuthSession();
 
         if (savedSession?.token) {
@@ -73,6 +76,14 @@ function AppContent() {
 
     bootstrapAuth();
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    void registerForPushNotifications();
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) {
