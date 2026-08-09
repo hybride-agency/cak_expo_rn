@@ -5,6 +5,7 @@ import type {
   HomepageData,
   MobilePlansData,
   ProfileData,
+  ProfileUpdatePayload,
 } from "../types/home";
 import type { FitnessPlan, MealEntry, MealPlan } from "../types/plans";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -34,20 +35,6 @@ export const getProfile = createAsyncThunk(
     } catch (error: unknown) {
       return rejectWithValue(
         getApiErrorMessage(error, "Failed to load profile"),
-      );
-    }
-  },
-);
-
-export const getCurrentPlan = createAsyncThunk(
-  "home/getCurrentPlan",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get("/auth/current-plan");
-      return response.data;
-    } catch (error: unknown) {
-      return rejectWithValue(
-        getApiErrorMessage(error, "Failed to load current plan"),
       );
     }
   },
@@ -267,6 +254,18 @@ const homeSlice = createSlice({
       .addCase(getProfile.rejected, (state, action) => {
         state.loading = false;
         state.refreshing = false;
+        state.error = action.payload as string;
+      })
+      .addCase(updateProfile.pending, (state) => {
+        state.savingProfile = true;
+        state.error = null;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.savingProfile = false;
+        state.profile = action.payload?.data ?? action.payload;
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.savingProfile = false;
         state.error = action.payload as string;
       })
       .addCase(getCurrentPlan.pending, (state) => {

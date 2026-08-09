@@ -1,14 +1,12 @@
 import {configureStore} from '@reduxjs/toolkit';
 
-import {validate} from '../src/screens/PersonalDataView';
-import {
-  toApiGender,
-  toPickerGender,
-} from '../src/screens/PersonalDataView/StatPickerModal';
 import {
   MIN_PASSWORD_LENGTH,
+  toApiGender,
+  toPickerGender,
+  validate,
   validatePasswordForm,
-} from '../src/screens/PersonalDataView/ChangePasswordModal';
+} from '../src/screens/PersonalDataView/validation';
 import homeReducer, {updateProfile} from '../src/slice/HomeSlice';
 import axiosInstance from '../src/axiosConfig';
 

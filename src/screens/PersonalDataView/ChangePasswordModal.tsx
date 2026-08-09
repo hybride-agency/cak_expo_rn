@@ -15,52 +15,15 @@ import Svg, {Path} from 'react-native-svg';
 import axiosInstance from '../../axiosConfig';
 import {getApiErrorMessage} from '../../utils/apiError';
 import {PrimaryButtonCmp} from '../../components';
+import {
+  EMPTY_PASSWORD_FORM,
+  validatePasswordForm,
+  type PasswordErrors,
+  type PasswordForm,
+} from './validation';
 
 const ACCENT = '#68FE00';
 const SURFACE = '#222222';
-
-export const MIN_PASSWORD_LENGTH = 8;
-
-export interface PasswordForm {
-  current_password: string;
-  password: string;
-  password_confirmation: string;
-}
-
-export type PasswordErrors = Partial<Record<keyof PasswordForm, string>>;
-
-const EMPTY_FORM: PasswordForm = {
-  current_password: '',
-  password: '',
-  password_confirmation: '',
-};
-
-export const validatePasswordForm = (form: PasswordForm): PasswordErrors => {
-  const errors: PasswordErrors = {};
-
-  if (!form.current_password) {
-    errors.current_password = 'Current password is required';
-  }
-
-  if (!form.password) {
-    errors.password = 'New password is required';
-  } else if (form.password.length < MIN_PASSWORD_LENGTH) {
-    errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
-  } else if (form.password === form.current_password) {
-    errors.password = 'New password must be different from the current one';
-  }
-
-  if (!form.password_confirmation) {
-    errors.password_confirmation = 'Please confirm your new password';
-  } else if (
-    form.password &&
-    form.password_confirmation !== form.password
-  ) {
-    errors.password_confirmation = 'Passwords do not match';
-  }
-
-  return errors;
-};
 
 interface ChangePasswordModalProps {
   visible: boolean;
@@ -73,7 +36,7 @@ const ChangePasswordModal = ({
   onClose,
   onSuccess,
 }: ChangePasswordModalProps) => {
-  const [form, setForm] = useState<PasswordForm>(EMPTY_FORM);
+  const [form, setForm] = useState<PasswordForm>(EMPTY_PASSWORD_FORM);
   const [errors, setErrors] = useState<PasswordErrors>({});
   const [requestError, setRequestError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -81,7 +44,7 @@ const ChangePasswordModal = ({
   // Never leave typed passwords sitting in state after the sheet closes.
   useEffect(() => {
     if (!visible) {
-      setForm(EMPTY_FORM);
+      setForm(EMPTY_PASSWORD_FORM);
       setErrors({});
       setRequestError(null);
       setLoading(false);

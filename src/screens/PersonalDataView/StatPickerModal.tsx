@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, Modal, TouchableOpacity} from 'react-native';
 import Svg, {Path} from 'react-native-svg';
 
+import {toApiGender, toPickerGender} from './validation';
 import {
   AgePickerCmp,
   GenderPickerCmp,
@@ -119,31 +120,6 @@ const StatPickerModal = ({
       </View>
     </Modal>
   );
-};
-
-// GenderPickerCmp speaks 'm' / 'f'; PUT /auth/profile expects 'male' / 'female'.
-export const toApiGender = (code: string) => {
-  if (code === 'm' || code === 'male') {
-    return 'male';
-  }
-
-  if (code === 'f' || code === 'female') {
-    return 'female';
-  }
-
-  return code;
-};
-
-export const toPickerGender = (value: number | string) => {
-  if (value === 'male' || value === 'm') {
-    return 'm';
-  }
-
-  if (value === 'female' || value === 'f') {
-    return 'f';
-  }
-
-  return null;
 };
 
 const toNumber = (value: number | string, fallback: number) => {

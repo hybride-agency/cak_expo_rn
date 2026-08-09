@@ -1,27 +1,20 @@
-import React from 'react';
-import {
-  Image,
-  ImageSourcePropType,
-  StyleSheet,
-  View,
-} from 'react-native';
+import type { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import type { RouteProp } from "@react-navigation/native";
 import {
   NavigatorScreenParams,
   getFocusedRouteNameFromRoute,
-} from '@react-navigation/native';
-import {
-  createBottomTabNavigator,
-} from '@react-navigation/bottom-tabs';
-import type {BottomTabNavigationOptions} from '@react-navigation/bottom-tabs';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+} from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 import {
   AboutUsView,
   ContactUsView,
   ExercisePlayerView,
   FitnessPlanView,
   HomepageListView,
-  MealPlannerView,
   MealDetailsView,
+  MealPlannerView,
   MembershipView,
   NotificationsView,
   PaymentHistoryView,
@@ -32,21 +25,24 @@ import {
   WorkoutSectionView,
   WorkoutSuccessView,
   WorkoutSurveyView,
-} from '../screens';
-import {useAppSelector} from '../store';
-import type {RouteProp} from '@react-navigation/native';
-import type {AuthResponse, UserProfile} from '../types/auth';
-import type {WorkoutExercise, WorkoutSection, DisplayMeal} from '../types/plans';
+} from "../screens";
+import { useAppSelector } from "../store";
+import type { AuthResponse, UserProfile } from "../types/auth";
+import type {
+  DisplayMeal,
+  WorkoutExercise,
+  WorkoutSection,
+} from "../types/plans";
 
-const ACCENT = '#8FFF19';
+const ACCENT = "#8FFF19";
 
-type TabKey = 'home' | 'meal' | 'workout' | 'profile';
+type TabKey = "home" | "meal" | "workout" | "profile";
 
 export type WorkoutFlowParamList = {
-  WorkoutSectionView: {section: WorkoutSection; dayName: string};
-  ExercisePlayerView: {exercise: WorkoutExercise; sectionName?: string};
-  WorkoutSuccessView: {exercise: WorkoutExercise};
-  WorkoutSurveyView: {currentExerciseId?: number};
+  WorkoutSectionView: { section: WorkoutSection; dayName: string };
+  ExercisePlayerView: { exercise: WorkoutExercise; sectionName?: string };
+  WorkoutSuccessView: { exercise: WorkoutExercise };
+  WorkoutSurveyView: { currentExerciseId?: number };
 };
 
 export type HomeStackParamList = {
@@ -55,7 +51,7 @@ export type HomeStackParamList = {
 
 export type MealStackParamList = {
   MealPlannerView: undefined;
-  MealDetailsView: {meal: DisplayMeal};
+  MealDetailsView: { meal: DisplayMeal };
 };
 
 export type WorkoutStackParamList = {
@@ -94,31 +90,31 @@ const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
 const NAV_ICON_ASSETS: Record<
   TabKey,
-  {on: ImageSourcePropType; off: ImageSourcePropType}
+  { on: ImageSourcePropType; off: ImageSourcePropType }
 > = {
   home: {
-    on: require('../../assets/images/home-on.png'),
-    off: require('../../assets/images/home-off.png'),
+    on: require("../../assets/images/home-on.png"),
+    off: require("../../assets/images/home-off.png"),
   },
   meal: {
-    on: require('../../assets/images/meal-on.png'),
-    off: require('../../assets/images/meal-off.png'),
+    on: require("../../assets/images/meal-on.png"),
+    off: require("../../assets/images/meal-off.png"),
   },
   workout: {
-    on: require('../../assets/images/workout-on.png'),
-    off: require('../../assets/images/workout-off.png'),
+    on: require("../../assets/images/workout-on.png"),
+    off: require("../../assets/images/workout-off.png"),
   },
   profile: {
-    on: require('../../assets/images/profile-on.png'),
-    off: require('../../assets/images/profile-off.png'),
+    on: require("../../assets/images/profile-on.png"),
+    off: require("../../assets/images/profile-off.png"),
   },
 };
 
 const WORKOUT_FLOW_ROUTES = new Set([
-  'WorkoutSectionView',
-  'ExercisePlayerView',
-  'WorkoutSuccessView',
-  'WorkoutSurveyView',
+  "WorkoutSectionView",
+  "ExercisePlayerView",
+  "WorkoutSuccessView",
+  "WorkoutSurveyView",
 ]);
 
 const screenOptions = {
@@ -251,33 +247,38 @@ const ProfileNavigator = () => (
 );
 
 const MainNavigator = () => {
-  const {homepage, profile} = useAppSelector(state => state.home);
-  const loginUser = useAppSelector(state => state.login.user);
-  const enabledTabs = getEnabledTabs(getActivePlanAlias(homepage, profile, loginUser));
+  const { homepage, profile } = useAppSelector((state) => state.home);
+  const loginUser = useAppSelector((state) => state.login.user);
+  const enabledTabs = getEnabledTabs(
+    getActivePlanAlias(homepage, profile, loginUser),
+  );
 
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
-      screenOptions={({route}) => ({
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: false,
         tabBarHideOnKeyboard: true,
-        tabBarStyle: shouldHideTabBar(route) ? styles.tabBarHidden : styles.tabBar,
+        tabBarStyle: shouldHideTabBar(route)
+          ? styles.tabBarHidden
+          : styles.tabBar,
         tabBarItemStyle: styles.tabBarItem,
-      })}>
+      })}
+    >
       <Tab.Screen
         name="HomeTab"
         component={HomeNavigator}
         options={homeTabOptions}
       />
-      {enabledTabs.includes('meal') ? (
+      {enabledTabs.includes("meal") ? (
         <Tab.Screen
           name="MealTab"
           component={MealNavigator}
           options={mealTabOptions}
         />
       ) : null}
-      {enabledTabs.includes('workout') ? (
+      {enabledTabs.includes("workout") ? (
         <Tab.Screen
           name="WorkoutTab"
           component={WorkoutNavigator}
@@ -294,26 +295,31 @@ const MainNavigator = () => {
 };
 
 const homeTabOptions: BottomTabNavigationOptions = {
-  tabBarIcon: ({focused}) => <TabIcon tabKey="home" focused={focused} />,
+  tabBarIcon: ({ focused }) => <TabIcon tabKey="home" focused={focused} />,
 };
 
 const mealTabOptions: BottomTabNavigationOptions = {
-  tabBarIcon: ({focused}) => <TabIcon tabKey="meal" focused={focused} />,
+  tabBarIcon: ({ focused }) => <TabIcon tabKey="meal" focused={focused} />,
 };
 
 const workoutTabOptions: BottomTabNavigationOptions = {
-  tabBarIcon: ({focused}) => <TabIcon tabKey="workout" focused={focused} />,
+  tabBarIcon: ({ focused }) => <TabIcon tabKey="workout" focused={focused} />,
 };
 
 const profileTabOptions: BottomTabNavigationOptions = {
-  tabBarIcon: ({focused}) => <TabIcon tabKey="profile" focused={focused} />,
+  tabBarIcon: ({ focused }) => <TabIcon tabKey="profile" focused={focused} />,
 };
 
-const TabIcon = ({tabKey, focused}: {tabKey: TabKey; focused: boolean}) => (
+const TabIcon = ({ tabKey, focused }: { tabKey: TabKey; focused: boolean }) => (
   <View style={styles.tabIconWrap}>
     <Image
-      source={focused ? NAV_ICON_ASSETS[tabKey].on : NAV_ICON_ASSETS[tabKey].off}
-      style={[styles.tabIconImage, tabKey === 'meal' && styles.mealTabIconImage]}
+      source={
+        focused ? NAV_ICON_ASSETS[tabKey].on : NAV_ICON_ASSETS[tabKey].off
+      }
+      style={[
+        styles.tabIconImage,
+        tabKey === "meal" && styles.mealTabIconImage,
+      ]}
       resizeMode="contain"
     />
     {focused ? <View style={styles.tabActiveDot} /> : null}
@@ -323,30 +329,33 @@ const TabIcon = ({tabKey, focused}: {tabKey: TabKey; focused: boolean}) => (
 const shouldHideTabBar = (route: RouteProp<MainTabParamList>) => {
   const focusedRouteName = getFocusedRouteNameFromRoute(route);
   if (!focusedRouteName) return false;
-  return WORKOUT_FLOW_ROUTES.has(focusedRouteName) || focusedRouteName === 'MealDetailsView';
+  return (
+    WORKOUT_FLOW_ROUTES.has(focusedRouteName) ||
+    focusedRouteName === "MealDetailsView"
+  );
 };
 
 const getEnabledTabs = (planAlias: string): TabKey[] => {
   const normalizedPlan = normalizePlanAlias(planAlias);
 
   switch (normalizedPlan) {
-    case 'starter':
-    case 'master':
-      return ['home', 'workout', 'profile'];
-    case 'meal':
-      return ['home', 'meal', 'profile'];
-    case 'starter+meal':
-    case 'master+meal':
-      return ['home', 'meal', 'workout', 'profile'];
+    case "starter":
+    case "master":
+      return ["home", "workout", "profile"];
+    case "meal":
+      return ["home", "meal", "profile"];
+    case "starter+meal":
+    case "master+meal":
+      return ["home", "meal", "workout", "profile"];
     default:
-      return ['home', 'meal', 'workout', 'profile'];
+      return ["home", "meal", "workout", "profile"];
   }
 };
 
 type PlanSource = {
-  plan_info?: {active_plan_alias?: string; plan_name?: string};
+  plan_info?: { active_plan_alias?: string; plan_name?: string };
   active_plan?: PlanNode;
-  subscription?: {plan?: PlanNode};
+  subscription?: { plan?: PlanNode };
 };
 
 type PlanNode = {
@@ -357,7 +366,7 @@ type PlanNode = {
 
 type ProfilePlanSource = UserProfile & {
   active_plan?: PlanNode;
-  current_subscription?: {plan?: PlanNode};
+  current_subscription?: { plan?: PlanNode };
 };
 
 const getActivePlanAlias = (
@@ -390,51 +399,51 @@ const normalizePlanAlias = (planAlias: string) =>
   planAlias
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/&/g, '+')
-    .replace(/plus/g, '+');
+    .replace(/\s+/g, "")
+    .replace(/&/g, "+")
+    .replace(/plus/g, "+");
 
 const firstString = (...values: unknown[]) => {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim().length) {
+    if (typeof value === "string" && value.trim().length) {
       return value.trim();
     }
   }
-  return '';
+  return "";
 };
 
 const styles = StyleSheet.create({
   tabBar: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
     height: 92,
-    backgroundColor: '#1C1C1C',
+    backgroundColor: "#1C1C1C",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     borderTopWidth: 0,
     paddingTop: 20,
     paddingBottom: 28,
     paddingHorizontal: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 10,
-    shadowOffset: {width: 0, height: -5},
+    shadowOffset: { width: 0, height: -5 },
     elevation: 20,
   },
   tabBarHidden: {
-    display: 'none',
+    display: "none",
   },
   tabBarItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabIconWrap: {
     width: 56,
     height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabIconImage: {
     width: 26,
