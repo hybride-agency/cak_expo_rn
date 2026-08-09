@@ -1,151 +1,294 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
+  ActivityIndicator,
+  Image,
   ScrollView,
-  ImageBackground,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Circle, Path} from 'react-native-svg';
+import {useEvent} from 'expo';
+import {VideoView, useVideoPlayer} from 'expo-video';
+import type {VideoSource} from 'expo-video';
 
 import {getHomepage, updateExerciseCompletion} from '../../slice/HomeSlice';
 import {useAppDispatch} from '../../store';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NavigationProp, RouteProp} from '@react-navigation/native';
-import type {MainStackParamList, WorkoutFlowParamList} from '../../navigation/MainStack';
+import type {
+  MainStackParamList,
+  WorkoutFlowParamList,
+} from '../../navigation/MainStack';
 
 const ACCENT = '#68FE00';
 const BACKGROUND = '#171717';
-
-const BACKGROUND_IMAGE_URL = 'https://d1t9z5ilqoa9lf.cloudfront.net/pages/background-workout-starter.png';
+const STARTER_IMAGE_URL =
+  'https://d1t9z5ilqoa9lf.cloudfront.net/pages/background-workout-starter.png';
 
 const ExercisePlayerView = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<WorkoutFlowParamList, 'ExercisePlayerView'>>();
-  const {exercise, sectionName} = route.params;
+  const {exercise, sectionName, hasVideoAccess} = route.params;
   const dispatch = useAppDispatch();
-  
-  // Parse instructions into steps if possible, or just show them
-  const instructions =
-    exercise?.instruction_text ||
-    'Instructions are not available for this exercise.';
-  const rawSteps = instructions.split('\n\n').filter(Boolean);
-  const steps = rawSteps.map((s: string) => {
-    const parts = s.split('\n');
-    return {
-      title: parts[0],
-      desc: parts.slice(1).join('\n') || parts[0],
+  const showVideo = hasVideoAccess && Boolean(exercise.video_url);
+  const videoSource = useMemo<VideoSource>(
+    () => getVideoSource(showVideo ? exercise.video_url : null),
+    [exercise.video_url, showVideo],
+  );
+  const player = useVideoPlayer(videoSource, videoPlayer => {
+    videoPlayer.bufferOptions = {
+      preferredForwardBufferDuration: 12,
+      waitsToMinimizeStalling: true,
+      minBufferForPlayback: 2,
+      maxBufferBytes: 0,
+      prioritizeTimeOverSizeThreshold: true,
     };
   });
+  const playerState = useEvent(player, 'statusChange', {
+    status: player.status,
+  });
+  const [renderedVideoUrl, setRenderedVideoUrl] = React.useState<string | null>(
+    null,
+  );
+  const [isRetrying, setIsRetrying] = React.useState(false);
+  const [retryError, setRetryError] = React.useState<string | null>(null);
+  const hasRenderedFirstFrame = renderedVideoUrl === exercise.video_url;
+  const isBuffering = showVideo && playerState.status === 'loading';
+  const hasPlaybackError = showVideo && playerState.status === 'error';
+
+  const instructions =
+    exercise.instruction_text ||
+    'Instructions are not available for this exercise.';
+  const steps = useMemo(() => parseInstructionSteps(instructions), [instructions]);
 
   const onFinish = async () => {
-    if (exercise?.id) {
-      await dispatch(updateExerciseCompletion({
-        userWorkoutExerciseId: exercise.id,
-        is_completed: true
-      }));
+    let completedExercise = {...exercise, is_completed: true};
+
+    if (exercise.id) {
+      const response = await dispatch(
+        updateExerciseCompletion({
+          userWorkoutExerciseId: exercise.id,
+          is_completed: true,
+        }),
+      ).unwrap();
+      const updatedExercise = response?.data ?? response;
+      completedExercise = {...completedExercise, ...updatedExercise};
     }
     dispatch(getHomepage());
-    navigation.navigate('WorkoutSuccessView', {exercise});
+    navigation.navigate('WorkoutSuccessView', {exercise: completedExercise});
+  };
+
+  const retryVideo = async () => {
+    if (!videoSource) return;
+
+    setIsRetrying(true);
+    setRenderedVideoUrl(null);
+    setRetryError(null);
+    try {
+      await player.replaceAsync(videoSource);
+      player.play();
+    } catch (error: unknown) {
+      setRetryError(
+        error instanceof Error ? error.message : 'Unable to reload the video.',
+      );
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <ImageBackground 
-        source={{ uri: exercise?.image_url || BACKGROUND_IMAGE_URL }} 
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        <SafeAreaView style={styles.overlay} edges={['top', 'left', 'right', 'bottom']}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                <Path d="M15 18L9 12L15 6" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{exercise?.exercise_name || sectionName || 'Stretching'}</Text>
-            <View style={styles.headerSpacer} />
-          </View>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}>
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M15 18L9 12L15 6"
+                stroke="#FFF"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
+          <Text numberOfLines={1} style={styles.headerTitle}>
+            {exercise.exercise_name || sectionName || 'Workout'}
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {steps.map((step, index) => (
-              <View key={index} style={[styles.stepCard, index === 0 && styles.stepCardActive]}>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>{index + 1}</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          {showVideo ? (
+            <View style={styles.videoFrame}>
+              <VideoView
+                player={player}
+                style={styles.video}
+                nativeControls
+                contentFit="contain"
+                fullscreenOptions={{enable: true}}
+                onFirstFrameRender={() =>
+                  setRenderedVideoUrl(exercise.video_url || null)
+                }
+              />
+              {isBuffering || isRetrying ? (
+                <View pointerEvents="none" style={styles.playerOverlay}>
+                  <ActivityIndicator color={ACCENT} size="large" />
+                  <Text style={styles.playerOverlayText}>
+                    {hasRenderedFirstFrame ? 'Buffering…' : 'Loading video…'}
+                  </Text>
                 </View>
-                <Text style={styles.stepTitle}>{step.title}</Text>
-                <Text style={styles.stepText}>{step.desc}</Text>
-              </View>
-            ))}
-          </ScrollView>
+              ) : null}
+              {hasPlaybackError && !isRetrying ? (
+                <View style={styles.playerOverlay}>
+                  <Text style={styles.playerErrorTitle}>Video unavailable</Text>
+                  <Text style={styles.playerErrorText}>
+                    {retryError ||
+                      playerState.error?.message ||
+                      'Check your connection and try again.'}
+                  </Text>
+                  <TouchableOpacity
+                    disabled={isRetrying}
+                    onPress={retryVideo}
+                    style={styles.retryVideoButton}>
+                    <Text style={styles.retryVideoButtonText}>Try again</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <Image
+              source={{uri: exercise.image_url || STARTER_IMAGE_URL}}
+              style={styles.exerciseImage}
+              resizeMode="cover"
+            />
+          )}
 
-          <View style={styles.footer}>
-            <TouchableOpacity 
-              onPress={onFinish}
-              activeOpacity={0.8}
-              style={styles.timerBadge}
-            >
-               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{marginRight: 8}}>
-                <Circle cx="12" cy="12" r="10" stroke={ACCENT} strokeWidth="2" />
-                <Path d="M12 7V12L15 15" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" />
-              </Svg>
-              <Text style={styles.timerText}>{exercise?.estimated_minutes || '30'} mins</Text>
-            </TouchableOpacity>
+          <View style={styles.modeRow}>
+            <Text style={styles.modeLabel}>
+              {showVideo ? 'VIDEO WORKOUT' : 'WORKOUT'}
+            </Text>
+            {hasVideoAccess && !exercise.video_url ? (
+              <Text style={styles.fallbackLabel}>TEXT GUIDE</Text>
+            ) : null}
           </View>
-        </SafeAreaView>
-      </ImageBackground>
-    </View>
+
+          <Text style={styles.sectionTitle}>How to perform</Text>
+          {steps.map((step, index) => (
+            <View key={`${step.title}-${index}`} style={styles.stepCard}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>{index + 1}</Text>
+              </View>
+              <View style={styles.stepCopy}>
+                <Text style={styles.stepTitle}>{step.title}</Text>
+                {step.description !== step.title ? (
+                  <Text style={styles.stepText}>{step.description}</Text>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <View style={styles.durationBadge}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Circle cx="12" cy="12" r="10" stroke={ACCENT} strokeWidth="2" />
+              <Path
+                d="M12 7V12L15 15"
+                stroke={ACCENT}
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={styles.durationText}>
+              {exercise.estimated_minutes || '30'} mins
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onFinish} activeOpacity={0.8} style={styles.finishButton}>
+            <Text style={styles.finishButtonText}>Complete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
+const parseInstructionSteps = (instructions: string) => {
+  const stepTitles = ['Setup', 'Movement', 'Form & safety'];
+  const blocks = instructions
+    .split(/\n\s*\n/)
+    .map(block => block.trim())
+    .filter(Boolean);
+
+  return (blocks.length > 0 ? blocks : [instructions]).map((block, index) => {
+    return {
+      title: stepTitles[index] || `Step ${index + 1}`,
+      description: block.replace(/^\d+[.)]\s*/, ''),
+    };
+  });
+};
+
+const getVideoSource = (uri?: string | null): VideoSource => {
+  if (!uri) return null;
+
+  const pathname = uri.split(/[?#]/)[0].toLowerCase();
+  const contentType = pathname.endsWith('.m3u8')
+    ? 'hls'
+    : pathname.endsWith('.mpd')
+      ? 'dash'
+      : 'progressive';
+
+  return {
+    uri,
+    contentType,
+    useCaching: contentType === 'progressive',
+  };
+};
+
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: BACKGROUND},
-  backgroundImage: {flex: 1},
-  overlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 24},
-  header: {height: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  safeArea: {flex: 1, backgroundColor: BACKGROUND},
+  container: {flex: 1, backgroundColor: BACKGROUND, paddingHorizontal: 24},
+  header: {height: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   backButton: {width: 40, height: 40, justifyContent: 'center'},
-  headerTitle: {color: '#FFF', fontSize: 18, fontFamily: 'Raleway-Medium'},
+  headerTitle: {color: '#FFF', fontSize: 18, fontFamily: 'Raleway-Bold', flex: 1, textAlign: 'center'},
   headerSpacer: {width: 40},
-  scrollContent: {paddingTop: 80, paddingBottom: 40},
-  stepCard: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    marginBottom: 24,
-    position: 'relative',
-  },
-  stepCardActive: {
-    backgroundColor: 'rgba(104, 254, 0, 0.4)',
-  },
-  stepBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: ACCENT,
+  scrollContent: {paddingBottom: 28},
+  videoFrame: {height: 240, borderRadius: 20, overflow: 'hidden', backgroundColor: '#000'},
+  video: {width: '100%', height: '100%'},
+  playerOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.72)',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'absolute',
-    top: -14,
-    left: 20,
+    paddingHorizontal: 28,
   },
-  stepBadgeText: {color: '#171717', fontSize: 14, fontFamily: 'Raleway-Bold'},
-  stepTitle: {color: '#FFF', fontSize: 18, fontFamily: 'Raleway-Medium', marginBottom: 10},
-  stepText: {color: '#E0E0E0', fontSize: 14, fontFamily: 'Raleway-Medium', lineHeight: 22},
-  footer: {paddingBottom: 40, alignItems: 'center'},
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-    paddingVertical: 14,
-    borderRadius: 30,
-    borderWidth: 1.5,
-    borderColor: ACCENT,
-    backgroundColor: '#000',
-  },
-  timerText: {color: '#FFF', fontSize: 18, fontFamily: 'Raleway-Bold'},
+  playerOverlayText: {color: '#FFF', fontSize: 13, fontFamily: 'Raleway-Medium', marginTop: 12},
+  playerErrorTitle: {color: '#FFF', fontSize: 17, fontFamily: 'Raleway-Bold', textAlign: 'center'},
+  playerErrorText: {color: '#C8C8C8', fontSize: 12, fontFamily: 'Raleway-Medium', textAlign: 'center', marginTop: 8},
+  retryVideoButton: {backgroundColor: ACCENT, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10, marginTop: 16},
+  retryVideoButtonText: {color: BACKGROUND, fontSize: 13, fontFamily: 'Raleway-Bold'},
+  exerciseImage: {height: 240, width: '100%', borderRadius: 20, backgroundColor: '#2A2A2A'},
+  modeRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 24},
+  modeLabel: {color: ACCENT, fontSize: 11, fontFamily: 'Raleway-Bold'},
+  fallbackLabel: {color: '#AAA', fontSize: 10, fontFamily: 'Raleway-Bold'},
+  sectionTitle: {color: '#FFF', fontSize: 22, fontFamily: 'Raleway-Bold', marginBottom: 20},
+  stepCard: {backgroundColor: '#2A2A2A', borderRadius: 16, padding: 18, marginBottom: 14, flexDirection: 'row'},
+  stepBadge: {width: 30, height: 30, borderRadius: 15, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center', marginRight: 14},
+  stepBadgeText: {color: BACKGROUND, fontSize: 14, fontFamily: 'Raleway-Bold'},
+  stepCopy: {flex: 1},
+  stepTitle: {color: '#FFF', fontSize: 16, fontFamily: 'Raleway-Bold'},
+  stepText: {color: '#C8C8C8', fontSize: 14, fontFamily: 'Raleway-Medium', lineHeight: 21, marginTop: 8},
+  footer: {paddingTop: 14, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#2A2A2A'},
+  durationBadge: {height: 50, paddingHorizontal: 16, borderRadius: 25, borderWidth: 1, borderColor: ACCENT, flexDirection: 'row', alignItems: 'center', gap: 8},
+  durationText: {color: '#FFF', fontSize: 14, fontFamily: 'Raleway-Bold'},
+  finishButton: {height: 50, flex: 1, borderRadius: 25, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center'},
+  finishButtonText: {color: BACKGROUND, fontSize: 16, fontFamily: 'Raleway-Bold'},
 });
 
 export default ExercisePlayerView;

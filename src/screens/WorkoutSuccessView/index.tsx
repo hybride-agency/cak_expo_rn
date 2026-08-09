@@ -59,7 +59,9 @@ const WorkoutSuccessView = () => {
             <StatCard icon="exercise" label={exercise.exercise_name || 'Completed'} />
             <StatCard
               icon="burn"
-              label={exercise.calories_burned || exercise.kcal ? `${exercise.calories_burned ?? exercise.kcal} kcal` : '— kcal'}
+              label={exercise.kcal_burned || exercise.calories_burned || exercise.kcal
+                ? `${exercise.kcal_burned ?? exercise.calories_burned ?? exercise.kcal} kcal`
+                : '— kcal'}
             />
             <StatCard
               icon="time"

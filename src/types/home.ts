@@ -21,8 +21,12 @@ export interface ApiItem {
   duration_minutes?: number | string;
   minutes?: number | string;
   estimated_minutes?: number | string;
+  total_estimated_minutes?: number | string;
+  day_total_estimated_minutes?: number | string;
   exercise_name?: string;
   category?: string;
+  category_name?: string;
+  next_exercise?: ApiItem | null;
   price?: number | string;
   monthly_price?: number | string;
   starting_price?: number | string;

@@ -193,6 +193,8 @@ export const submitWeeklyReview = createAsyncThunk(
 
 interface HomeState {
   loading: boolean;
+  fitnessPlanLoading: boolean;
+  fitnessPlanError: string | null;
   refreshing: boolean;
   waterLoading: boolean;
   savingProfile: boolean;
@@ -208,6 +210,8 @@ interface HomeState {
 
 const initialState: HomeState = {
   loading: false,
+  fitnessPlanLoading: false,
+  fitnessPlanError: null,
   refreshing: false,
   waterLoading: false,
   savingProfile: false,
@@ -274,7 +278,17 @@ const homeSlice = createSlice({
         state.mealPlan = action.payload?.data ?? action.payload;
       })
       .addCase(getFitnessPlan.fulfilled, (state, action) => {
+        state.fitnessPlanLoading = false;
+        state.fitnessPlanError = null;
         state.fitnessPlan = action.payload?.data ?? action.payload;
+      })
+      .addCase(getFitnessPlan.pending, (state) => {
+        state.fitnessPlanLoading = true;
+        state.fitnessPlanError = null;
+      })
+      .addCase(getFitnessPlan.rejected, (state, action) => {
+        state.fitnessPlanLoading = false;
+        state.fitnessPlanError = action.payload as string;
       })
       .addCase(updateTodayWaterIntake.pending, (state) => {
         state.waterLoading = true;
@@ -317,7 +331,8 @@ const homeSlice = createSlice({
         }
       })
       .addCase(updateExerciseCompletion.fulfilled, (state, action) => {
-        const { id, is_completed } = action.payload?.data ?? action.payload;
+        const { id, is_completed, kcal_burned } =
+          action.payload?.data ?? action.payload;
 
         if (state.fitnessPlan && state.fitnessPlan.days) {
           state.fitnessPlan.days.forEach((day) => {
@@ -327,6 +342,7 @@ const homeSlice = createSlice({
                   section.exercises.forEach((ex) => {
                     if (ex.id === id) {
                       ex.is_completed = is_completed;
+                      ex.kcal_burned = kcal_burned;
                     }
                   });
                 }

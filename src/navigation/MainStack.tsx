@@ -44,7 +44,11 @@ type TabKey = 'home' | 'meal' | 'workout' | 'profile';
 
 export type WorkoutFlowParamList = {
   WorkoutSectionView: {section: WorkoutSection; dayName: string};
-  ExercisePlayerView: {exercise: WorkoutExercise; sectionName?: string};
+  ExercisePlayerView: {
+    exercise: WorkoutExercise;
+    sectionName?: string;
+    hasVideoAccess: boolean;
+  };
   WorkoutSuccessView: {exercise: WorkoutExercise};
   WorkoutSurveyView: {currentExerciseId?: number};
 };

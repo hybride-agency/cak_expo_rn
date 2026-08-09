@@ -217,6 +217,8 @@ const HomepageListView = () => {
   );
 
   const workoutDuration = firstNumber(
+    todayWorkout?.day_total_estimated_minutes,
+    todayWorkout?.total_estimated_minutes,
     todayWorkout?.duration_minutes,
     todayWorkout?.duration,
     todayWorkout?.minutes,
@@ -274,11 +276,13 @@ const HomepageListView = () => {
 
     for (const day of fitnessPlan?.days ?? []) {
       for (const section of day.sections ?? []) {
+        const nextExerciseId = Number(todayWorkout.id ?? 0);
         const match = section.exercises?.find(
           exercise =>
-            exercise.exercise_name?.toLowerCase() ===
-              todayWorkout.exercise_name?.toLowerCase() ||
-            exercise.id === todayWorkout.id,
+            nextExerciseId > 0
+              ? exercise.id === nextExerciseId
+              : exercise.exercise_name?.toLowerCase() ===
+                todayWorkout.exercise_name?.toLowerCase(),
         );
         if (match) {
           fullExercise = match;
@@ -292,7 +296,10 @@ const HomepageListView = () => {
     if (fullExercise) {
       navigation.navigate('ExercisePlayerView', {
         exercise: fullExercise,
-        sectionName: sectionName || todayWorkout.category,
+        sectionName:
+          sectionName ||
+          firstString(todayWorkout.category_name, todayWorkout.category),
+        hasVideoAccess: fitnessPlan?.has_video_access === true,
       });
       return;
     }
@@ -435,6 +442,7 @@ const HomepageListView = () => {
                   <View style={styles.tag}>
                     <Text style={styles.tagText}>
                       {firstString(
+                        todayWorkout?.category_name,
                         todayWorkout?.category,
                         todayWorkout?.type,
                         activePlanAlias.includes('meal') ? 'Nutrition' : 'Workout',
@@ -446,6 +454,7 @@ const HomepageListView = () => {
                     {firstString(
                       todayWorkout?.title,
                       todayWorkout?.name,
+                      todayWorkout?.exercise_name,
                       todayWorkout?.focus,
                       "Today's workout",
                     )}
@@ -671,8 +680,35 @@ const OverviewCard = ({item}: {item: OverviewCardData}) => {
     return (
       <View style={[styles.overviewCard, {backgroundColor: '#274318'}]}>
         <View style={styles.overviewContent}>
-          <Text style={styles.overviewDay}>{item.title}</Text>
-          <ChevronRight />
+          <View style={styles.overviewCopy}>
+            <View style={styles.overviewTitleRow}>
+              <Text style={styles.overviewDay}>{item.title}</Text>
+              <ChevronRight />
+            </View>
+            {item.categoryName ? (
+              <Text style={styles.overviewCategory}>{item.categoryName}</Text>
+            ) : null}
+            {item.nextExerciseName ? (
+              <Text style={styles.overviewNextExercise} numberOfLines={2}>
+                Next: {item.nextExerciseName}
+              </Text>
+            ) : (
+              <Text style={styles.overviewNextExercise}>Workout complete</Text>
+            )}
+            <View style={styles.overviewMetrics}>
+              {item.subtitle ? (
+                <View style={styles.overviewDurationRow}>
+                  <ClockIcon small />
+                  <Text style={styles.overviewDuration}>{item.subtitle} total</Text>
+                </View>
+              ) : null}
+              {item.nextExerciseDuration ? (
+                <Text style={styles.overviewDuration}>
+                  Next exercise: {item.nextExerciseDuration}
+                </Text>
+              ) : null}
+            </View>
+          </View>
         </View>
       </View>
     );
@@ -684,7 +720,7 @@ const OverviewCard = ({item}: {item: OverviewCardData}) => {
       imageStyle={styles.overviewImage}
       style={styles.overviewCard}>
       <View style={styles.overviewOverlay} />
-      <View style={styles.overviewContent}>
+      <View style={[styles.overviewContent, styles.overviewMealContent]}>
         <Text style={styles.overviewDay}>{item.title}</Text>
         <ChevronRight />
       </View>
@@ -724,6 +760,9 @@ type OverviewCardData = {
   id: string;
   title: string;
   subtitle: string;
+  categoryName?: string;
+  nextExerciseName?: string;
+  nextExerciseDuration?: string;
   image_url?: string;
   kind: 'meal' | 'workout';
 };
@@ -808,13 +847,30 @@ const buildOverviewCards = (
     ...toArray(fitnessPlan?.days),
   ]
     .slice(0, 7)
-    .map((item, index) => ({
-      id: `workout-${item?.id ?? index}`,
-      title: firstString(item?.day_name, item?.day, item?.title, dayLabels[index % dayLabels.length]),
-      subtitle: formatOptionalMetric('mins', item?.duration, item?.duration_minutes, item?.minutes),
-      image_url: firstString(item?.image_url, item?.thumbnail_url),
-      kind: 'workout' as const,
-    }));
+    .map((item, index) => {
+      const nextExercise = firstObject(item?.next_exercise);
+
+      return {
+        id: `workout-${item?.id ?? index}`,
+        title: firstString(item?.day_name, item?.day, item?.title, dayLabels[index % dayLabels.length]),
+        subtitle: formatOptionalMetric(
+          'mins',
+          item?.total_estimated_minutes,
+          item?.duration,
+          item?.duration_minutes,
+          item?.minutes,
+        ),
+        categoryName: firstString(
+          nextExercise?.category_name,
+          nextExercise?.category,
+          item?.focus,
+        ),
+        nextExerciseName: firstString(nextExercise?.exercise_name),
+        nextExerciseDuration: formatOptionalMetric('mins', nextExercise?.estimated_minutes),
+        image_url: firstString(item?.image_url, item?.thumbnail_url),
+        kind: 'workout' as const,
+      };
+    });
 
   const mealItems = [
     ...toArray(mealPlan?.days),
@@ -832,8 +888,7 @@ const buildOverviewCards = (
     }));
 
   if (['starter+meal', 'master+meal'].includes(normalizedPlan)) {
-    // If it's a combo plan, we show meals if we have them, otherwise workouts
-    return mealItems.length ? mealItems : workoutItems;
+    return workoutItems.length ? workoutItems : mealItems;
   }
 
   if (normalizedPlan === 'meal') {
@@ -945,7 +1000,13 @@ const formatWaterStep = (value: number) =>
 
 const toWorkoutSection = (value?: ApiItem) => ({
   id: Number(value?.id ?? 0),
-  section_name: firstString(value?.category, value?.title, value?.name, 'Workout'),
+  section_name: firstString(
+    value?.category_name,
+    value?.category,
+    value?.title,
+    value?.name,
+    'Workout',
+  ),
   exercises: value?.exercises ?? [],
 });
 
@@ -1525,11 +1586,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   overviewContent: {
+    padding: 20,
+    paddingBottom: 25,
+  },
+  overviewMealContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    paddingBottom: 25,
   },
   overviewCopy: {
     flex: 1,
@@ -1542,6 +1605,29 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     marginBottom: 6,
     flexShrink: 1,
+  },
+  overviewTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  overviewCategory: {
+    color: ACCENT,
+    fontSize: 14,
+    fontFamily: 'Raleway-Bold',
+    includeFontPadding: false,
+    marginBottom: 12,
+  },
+  overviewNextExercise: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 21,
+    fontFamily: 'Raleway-SemiBold',
+    includeFontPadding: false,
+  },
+  overviewMetrics: {
+    gap: 8,
+    marginTop: 14,
   },
   overviewDurationRow: {
     flexDirection: 'row',

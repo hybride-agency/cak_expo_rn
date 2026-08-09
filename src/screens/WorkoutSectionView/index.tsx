@@ -25,6 +25,7 @@ const WorkoutSectionView = () => {
   const {section, dayName} = route.params;
   const dispatch = useAppDispatch();
   const {fitnessPlan} = useAppSelector(state => state.home);
+  const hasVideoAccess = fitnessPlan?.has_video_access === true;
 
   // Use fitnessPlan from redux for reactive updates
   const activeSection = useMemo(() => {
@@ -68,7 +69,11 @@ const WorkoutSectionView = () => {
             <View key={ex.id || index} style={styles.exerciseCard}>
               <TouchableOpacity 
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate('ExercisePlayerView', {exercise: ex, sectionName: activeSection?.section_name})}
+                onPress={() => navigation.navigate('ExercisePlayerView', {
+                  exercise: ex,
+                  sectionName: activeSection?.section_name,
+                  hasVideoAccess,
+                })}
                 style={styles.exerciseInfo}
               >
                 <Text style={styles.exerciseName}>{ex.exercise_name}</Text>
