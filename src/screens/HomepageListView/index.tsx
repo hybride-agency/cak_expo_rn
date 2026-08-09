@@ -1,10 +1,12 @@
-import React, {
+import type { NavigationProp } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
+import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-} from 'react';
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -17,12 +19,11 @@ import {
   TouchableOpacity,
   View,
   ViewStyle,
-} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import Svg, {Circle, Path} from 'react-native-svg';
-import {SCREEN_PADDING} from '../../../theme';
-import {useNavigation} from '@react-navigation/native';
-import {useAppDispatch, useAppSelector} from '../../store';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle, Path } from "react-native-svg";
+import { SCREEN_PADDING } from "../../../theme";
+import type { MainStackParamList } from "../../navigation/MainStack";
 import {
   getFitnessPlan,
   getHomepage,
@@ -30,29 +31,32 @@ import {
   getMobilePlans,
   getProfile,
   updateTodayWaterIntake,
-} from '../../slice/HomeSlice';
-import {setIsLoggedIn} from '../../slice/LoginSlice';
-import {setIsPlan, setIsQuestion, setIsWelcome} from '../../slice/WelcomeSlice';
-import type {NavigationProp} from '@react-navigation/native';
-import type {MainStackParamList} from '../../navigation/MainStack';
+} from "../../slice/HomeSlice";
+import { setIsLoggedIn } from "../../slice/LoginSlice";
+import {
+  setIsPlan,
+  setIsQuestion,
+  setIsWelcome,
+} from "../../slice/WelcomeSlice";
+import { useAppDispatch, useAppSelector } from "../../store";
+import type { AuthResponse } from "../../types/auth";
 import type {
   ApiItem,
   HomepageData,
   HomepageSection,
   MobilePlansData,
   ProfileData,
-} from '../../types/home';
-import type {FitnessPlan, MealPlan, WorkoutExercise} from '../../types/plans';
-import type {AuthResponse} from '../../types/auth';
-import WaterGlass from './WaterGlass';
+} from "../../types/home";
+import type { FitnessPlan, MealPlan, WorkoutExercise } from "../../types/plans";
+import WaterGlass from "./WaterGlass";
 
-const ACCENT = '#68FE00';
-const BACKGROUND = '#171717';
-const SURFACE = '#232323';
-const MUTED = '#9B9B9B';
+const ACCENT = "#68FE00";
+const BACKGROUND = "#171717";
+const SURFACE = "#232323";
+const MUTED = "#9B9B9B";
 const WATER_STEPS = [150, 250, 300, 500, 1000];
-const FALLBACK_AVATAR = require('../../../assets/images/male.png');
-const FALLBACK_SUBSCRIPTION_IMAGE = require('../../../assets/images/generate.png');
+const FALLBACK_AVATAR = require("../../../assets/images/male.png");
+const FALLBACK_SUBSCRIPTION_IMAGE = require("../../../assets/images/generate.png");
 // Stand-ins for days the API sends without an image_url. LoremFlickr serves
 // free keyword-matched photos with no API key; ?lock pins each slot to one
 // image so a card never changes photo between renders.
@@ -62,31 +66,41 @@ const workoutFallbackUri = (slot: number) =>
 const mealFallbackUri = (slot: number) =>
   `https://loremflickr.com/600/800/food,meal,healthy?lock=${slot}`;
 const ListSeparator = () => <View style={styles.listSeparator} />;
-const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const dayNames = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
 ];
 
 const HomepageListView = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const dispatch = useAppDispatch();
-  const {homepage, profile, mobilePlans, mealPlan, fitnessPlan, loading, refreshing, waterLoading} =
-    useAppSelector(state => state.home);
-  const loginUser = useAppSelector(state => state.login.user);
+  const {
+    homepage,
+    profile,
+    mobilePlans,
+    mealPlan,
+    fitnessPlan,
+    loading,
+    refreshing,
+    waterLoading,
+  } = useAppSelector((state) => state.home);
+  const loginUser = useAppSelector((state) => state.login.user);
   const [selectedWaterStep, setSelectedWaterStep] = useState<number>(250);
 
   const fetchHomeData = useCallback(async () => {
     const profileResult = await dispatch(getProfile());
-    const profileData =
-      getProfile.fulfilled.match(profileResult) ? profileResult.payload : null;
+    const profileData = getProfile.fulfilled.match(profileResult)
+      ? profileResult.payload
+      : null;
     const nextProfile = profileData?.data ?? profileData;
-    const homepageAccess = profileData?.homepage_access ?? nextProfile?.homepage_access;
+    const homepageAccess =
+      profileData?.homepage_access ?? nextProfile?.homepage_access;
     const canAccess = homepageAccess?.can_access_homepage !== false;
 
     if (profileHasActivePlan(nextProfile, loginUser)) {
@@ -97,12 +111,12 @@ const HomepageListView = () => {
       } else {
         // Access blocked - redirect based on codes
         const codes = homepageAccess?.blocking_codes || [];
-        if (codes.includes('missing_quiz')) {
+        if (codes.includes("missing_quiz")) {
           dispatch(setIsQuestion(true));
           dispatch(setIsPlan(false));
           dispatch(setIsWelcome(false));
           dispatch(setIsLoggedIn(false));
-        } else if (codes.includes('missing_subscription')) {
+        } else if (codes.includes("missing_subscription")) {
           dispatch(setIsQuestion(false));
           dispatch(setIsPlan(true));
           dispatch(setIsWelcome(false));
@@ -123,13 +137,20 @@ const HomepageListView = () => {
   useEffect(() => {
     const parent = navigation.getParent();
 
-    return parent?.addListener('tabPress' as never, () => {
+    return parent?.addListener("tabPress" as never, () => {
       dispatch(getHomepage());
     });
   }, [dispatch, navigation]);
 
   const resolvedProfile = useMemo(
-    () => firstObject(profile?.user, homepage?.user, loginUser?.data?.user, loginUser?.user, profile),
+    () =>
+      firstObject(
+        profile?.user,
+        homepage?.user,
+        loginUser?.data?.user,
+        loginUser?.user,
+        profile,
+      ),
     [homepage, loginUser, profile],
   );
 
@@ -137,21 +158,27 @@ const HomepageListView = () => {
     resolvedProfile?.name,
     homepage?.greeting_name,
     loginUser?.data?.user?.name,
-    '',
+    "",
   );
-  const firstName = fullName.split(' ')[0] || fullName;
+  const firstName = fullName.split(" ")[0] || fullName;
   const avatarUri = firstString(
     resolvedProfile?.avatar_url,
     resolvedProfile?.profile_photo_url,
     resolvedProfile?.image_url,
   );
-  const workoutProgressSection = getHomepageSection(homepage, 'workout_progress');
-  const weeklyWorkoutSection = getHomepageSection(homepage, 'weekly_workout_overview');
-  const tipsSection = getHomepageSection(homepage, 'tips');
-  const waterSection = getHomepageSection(homepage, 'water_intake');
-  const mealKcalSection = getHomepageSection(homepage, 'meal_kcal_progress');
-  const upgradeOffersSection = getHomepageSection(homepage, 'upgrade_offers');
-  const mealDaysSection = getHomepageSection(homepage, 'meal_days_preview');
+  const workoutProgressSection = getHomepageSection(
+    homepage,
+    "workout_progress",
+  );
+  const weeklyWorkoutSection = getHomepageSection(
+    homepage,
+    "weekly_workout_overview",
+  );
+  const tipsSection = getHomepageSection(homepage, "tips");
+  const waterSection = getHomepageSection(homepage, "water_intake");
+  const mealKcalSection = getHomepageSection(homepage, "meal_kcal_progress");
+  const upgradeOffersSection = getHomepageSection(homepage, "upgrade_offers");
+  const mealDaysSection = getHomepageSection(homepage, "meal_days_preview");
 
   const subscriptionStatus = normalizeSubscriptionStatus(
     firstString(
@@ -187,7 +214,7 @@ const HomepageListView = () => {
   ).toLowerCase();
 
   const hasSubscription =
-    subscriptionStatus === 'active' ||
+    subscriptionStatus === "active" ||
     homepage?.plan_info?.is_active ||
     profileHasActivePlan(profile, loginUser) ||
     Boolean(homepage?.active_plan || homepage?.subscription);
@@ -259,9 +286,9 @@ const HomepageListView = () => {
     const today = localIsoDate();
 
     return (
-      days.find(day => isoDate(day?.date) === today) ??
+      days.find((day) => isoDate(day?.date) === today) ??
       days.find(
-        day =>
+        (day) =>
           todayWorkout?.id !== undefined &&
           (day?.next_exercise as ApiItem | undefined)?.id === todayWorkout.id,
       )
@@ -279,7 +306,13 @@ const HomepageListView = () => {
   );
 
   const weeklyBars = useMemo(
-    () => buildWeeklyBars(homepage, fitnessPlan, todayWorkout, workoutProgressSection),
+    () =>
+      buildWeeklyBars(
+        homepage,
+        fitnessPlan,
+        todayWorkout,
+        workoutProgressSection,
+      ),
     [fitnessPlan, homepage, todayWorkout, workoutProgressSection],
   );
 
@@ -293,7 +326,8 @@ const HomepageListView = () => {
   );
 
   const overviewCards = useMemo(
-    () => buildWorkoutOverviewCards(homepage, fitnessPlan, weeklyWorkoutSection),
+    () =>
+      buildWorkoutOverviewCards(homepage, fitnessPlan, weeklyWorkoutSection),
     [fitnessPlan, homepage, weeklyWorkoutSection],
   );
 
@@ -309,10 +343,13 @@ const HomepageListView = () => {
   const normalizedPlanAlias = normalizePlanAlias(activePlanAlias);
   const hasWorkoutAccess =
     homepage?.plan_info?.has_workout ||
-    ['starter', 'master', 'starter+meal', 'master+meal'].includes(normalizedPlanAlias);
+    ["starter", "master", "starter+meal", "master+meal"].includes(
+      normalizedPlanAlias,
+    );
   const showWorkoutSection =
     hasSubscription &&
-    (hasWorkoutAccess || Boolean(workoutProgressSection || weeklyWorkoutSection));
+    (hasWorkoutAccess ||
+      Boolean(workoutProgressSection || weeklyWorkoutSection));
 
   const showWaterSection = hasSubscription && Boolean(waterSection);
   const showCalorieSection = hasSubscription && Boolean(mealKcalSection);
@@ -323,7 +360,9 @@ const HomepageListView = () => {
     const nextTotal = Math.min(waterTotal + amount, waterGoal);
     setSelectedWaterStep(amount);
 
-    const result = await dispatch(updateTodayWaterIntake({total_ml: nextTotal}));
+    const result = await dispatch(
+      updateTodayWaterIntake({ total_ml: nextTotal }),
+    );
 
     // Water feeds several homepage sections, so re-read the whole payload
     // rather than patching one number locally.
@@ -335,16 +374,16 @@ const HomepageListView = () => {
   // The card is a shortcut to the plan, so it opens the Workout tab rather
   // than jumping straight into an exercise.
   const openMealPlan = (date?: string) => {
-    navigation.getParent?.()?.navigate('MealTab', {
-      screen: 'MealPlannerView',
-      params: {date},
+    navigation.getParent?.()?.navigate("MealTab", {
+      screen: "MealPlannerView",
+      params: { date },
     });
   };
 
   const openFitnessPlan = (date?: string) => {
-    navigation.getParent?.()?.navigate('WorkoutTab', {
-      screen: 'FitnessPlanView',
-      params: {date},
+    navigation.getParent?.()?.navigate("WorkoutTab", {
+      screen: "FitnessPlanView",
+      params: { date },
     });
   };
 
@@ -356,11 +395,12 @@ const HomepageListView = () => {
 
     for (const day of fitnessPlan?.days ?? []) {
       for (const section of day.sections ?? []) {
-        const match = section.exercises?.find(
-          exercise =>
-            exercise.exercise_name?.toLowerCase() ===
-              todayWorkout.exercise_name?.toLowerCase() ||
-            exercise.id === todayWorkout.id,
+        const nextExerciseId = Number(todayWorkout.id ?? 0);
+        const match = section.exercises?.find((exercise) =>
+          nextExerciseId > 0
+            ? exercise.id === nextExerciseId
+            : exercise.exercise_name?.toLowerCase() ===
+              todayWorkout.exercise_name?.toLowerCase(),
         );
         if (match) {
           fullExercise = match;
@@ -372,14 +412,17 @@ const HomepageListView = () => {
     }
 
     if (fullExercise) {
-      navigation.navigate('ExercisePlayerView', {
+      navigation.navigate("ExercisePlayerView", {
         exercise: fullExercise,
-        sectionName: sectionName || todayWorkout.category,
+        sectionName:
+          sectionName ||
+          firstString(todayWorkout.category_name, todayWorkout.category),
+        hasVideoAccess: fitnessPlan?.has_video_access === true,
       });
       return;
     }
 
-    navigation.navigate('WorkoutSectionView', {
+    navigation.navigate("WorkoutSectionView", {
       section: toWorkoutSection(todayWorkout),
       dayName: "Today's Workout",
     });
@@ -394,7 +437,7 @@ const HomepageListView = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <View style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -404,14 +447,17 @@ const HomepageListView = () => {
               onRefresh={fetchHomeData}
               tintColor={ACCENT}
             />
-          }>
+          }
+        >
           <View style={styles.header}>
             <View style={styles.headerCopy}>
               <Text style={styles.greeting}>Hello, {firstName}!</Text>
-              <Text style={styles.subtitle}>You're in. Let's train. CAK style!</Text>
+              <Text style={styles.subtitle}>
+                You're in. Let's train. CAK style!
+              </Text>
             </View>
             <Image
-              source={avatarUri ? {uri: avatarUri} : FALLBACK_AVATAR}
+              source={avatarUri ? { uri: avatarUri } : FALLBACK_AVATAR}
               style={styles.avatar}
             />
           </View>
@@ -422,19 +468,22 @@ const HomepageListView = () => {
               <FlatList
                 data={promoPlans}
                 horizontal
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.promoList}
                 ItemSeparatorComponent={ListSeparator}
-                renderItem={({item}) => <SubscriptionCard item={item} compact />}
+                renderItem={({ item }) => (
+                  <SubscriptionCard item={item} compact />
+                )}
               />
               <View style={styles.pagination}>
-                {promoPlans.slice(0, 4).map(item => (
+                {promoPlans.slice(0, 4).map((item) => (
                   <View
                     key={item.id}
                     style={[
                       styles.paginationDot,
-                      item.id === promoPlans[0].id && styles.paginationDotActive,
+                      item.id === promoPlans[0].id &&
+                        styles.paginationDotActive,
                     ]}
                   />
                 ))}
@@ -445,17 +494,22 @@ const HomepageListView = () => {
           {hasSubscription && upgradePlans.length > 0 ? (
             <View style={styles.sectionBlock}>
               <SectionHeader
-                title={firstString(upgradeOffersSection?.title, 'Available upgrades')}
+                title={firstString(
+                  upgradeOffersSection?.title,
+                  "Available upgrades",
+                )}
                 action="See all"
               />
               <FlatList
                 data={upgradePlans}
                 horizontal
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.promoList}
                 ItemSeparatorComponent={ListSeparator}
-                renderItem={({item}) => <SubscriptionCard item={item} compact />}
+                renderItem={({ item }) => (
+                  <SubscriptionCard item={item} compact />
+                )}
               />
             </View>
           ) : null}
@@ -470,7 +524,9 @@ const HomepageListView = () => {
                   loading={waterLoading}
                   onSelect={setSelectedWaterStep}
                   onAddWater={onAddWater}
-                  containerStyle={nutritionTileCount === 1 ? styles.singleStatCard : undefined}
+                  containerStyle={
+                    nutritionTileCount === 1 ? styles.singleStatCard : undefined
+                  }
                 />
               ) : null}
               {showCalorieSection ? (
@@ -478,7 +534,9 @@ const HomepageListView = () => {
                   consumed={calorieConsumed}
                   goal={calorieGoal}
                   remaining={calorieRemaining}
-                  containerStyle={nutritionTileCount === 1 ? styles.singleStatCard : undefined}
+                  containerStyle={
+                    nutritionTileCount === 1 ? styles.singleStatCard : undefined
+                  }
                 />
               ) : null}
             </View>
@@ -489,7 +547,8 @@ const HomepageListView = () => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.quickActionCard}
-                onPress={() => openFitnessPlan(localIsoDate())}>
+                onPress={() => openFitnessPlan(localIsoDate())}
+              >
                 <Text style={styles.quickActionTitle}>Today's workout</Text>
                 <ChevronRight />
               </TouchableOpacity>
@@ -497,13 +556,13 @@ const HomepageListView = () => {
               {weeklyBars.length > 0 ? (
                 <View style={styles.progressCard}>
                   <View style={styles.weekBarsRow}>
-                    {weeklyBars.map(day => (
+                    {weeklyBars.map((day) => (
                       <View key={day.label} style={styles.barColumn}>
                         <View style={styles.barTrack}>
                           <View
                             style={[
                               styles.barFill,
-                              {height: `${day.value * 100}%`},
+                              { height: `${day.value * 100}%` },
                             ]}
                           />
                         </View>
@@ -520,7 +579,9 @@ const HomepageListView = () => {
                         todayWorkout?.category,
                         todayProgress?.focus,
                         todayWorkout?.type,
-                        activePlanAlias.includes('meal') ? 'Nutrition' : 'Workout',
+                        activePlanAlias.includes("meal")
+                          ? "Nutrition"
+                          : "Workout",
                       )}
                     </Text>
                   </View>
@@ -540,17 +601,21 @@ const HomepageListView = () => {
                   {workoutDuration > 0 ? (
                     <View style={styles.durationRow}>
                       <ClockIcon />
-                      <Text style={styles.durationText}>{workoutDuration} mins</Text>
+                      <Text style={styles.durationText}>
+                        {workoutDuration} mins
+                      </Text>
                     </View>
                   ) : null}
 
-                  <TouchableOpacity 
-                    activeOpacity={0.9} 
+                  <TouchableOpacity
+                    activeOpacity={0.9}
                     disabled={!todayWorkout}
                     onPress={openTodayWorkout}
                     style={styles.primaryCta}
                   >
-                    <Text style={styles.primaryCtaText}>Continue To Workout</Text>
+                    <Text style={styles.primaryCtaText}>
+                      Continue To Workout
+                    </Text>
                     <View style={styles.primaryCtaIcon}>
                       <ChevronRight dark />
                     </View>
@@ -570,11 +635,11 @@ const HomepageListView = () => {
               <FlatList
                 data={overviewCards}
                 horizontal
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.overviewList}
                 ItemSeparatorComponent={ListSeparator}
-                renderItem={({item}) => (
+                renderItem={({ item }) => (
                   <OverviewCard
                     item={item}
                     onPress={() => openFitnessPlan(item.date)}
@@ -594,11 +659,11 @@ const HomepageListView = () => {
               <FlatList
                 data={mealOverviewCards}
                 horizontal
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.overviewList}
                 ItemSeparatorComponent={ListSeparator}
-                renderItem={({item}) => (
+                renderItem={({ item }) => (
                   <OverviewCard
                     item={item}
                     onPress={() => openMealPlan(item.date)}
@@ -638,36 +703,75 @@ const SectionHeader = ({
       <TouchableOpacity
         activeOpacity={0.7}
         onPress={onActionPress}
-        disabled={!onActionPress}>
+        disabled={!onActionPress}
+      >
         <Text style={styles.sectionAction}>{action}</Text>
       </TouchableOpacity>
     ) : null}
   </View>
 );
 
-const UPGRADE_IMAGE_URL = 'https://d1t9z5ilqoa9lf.cloudfront.net/pages/subs.png';
+const UPGRADE_IMAGE_URL =
+  "https://d1t9z5ilqoa9lf.cloudfront.net/pages/subs.png";
 
-const SubscriptionCard = ({item, compact = false}: {item: PromoPlan; compact?: boolean}) => (
+const SubscriptionCard = ({
+  item,
+  compact = false,
+}: {
+  item: PromoPlan;
+  compact?: boolean;
+}) => (
   <ImageBackground
-    source={compact ? {uri: UPGRADE_IMAGE_URL} : (item.image_url ? {uri: item.image_url} : FALLBACK_SUBSCRIPTION_IMAGE)}
+    source={
+      compact
+        ? { uri: UPGRADE_IMAGE_URL }
+        : item.image_url
+          ? { uri: item.image_url }
+          : FALLBACK_SUBSCRIPTION_IMAGE
+    }
     imageStyle={[styles.subscriptionImage, compact && styles.upgradeImage]}
     resizeMode="cover"
-    style={[styles.subscriptionCard, compact && styles.upgradeCard]}>
+    style={[styles.subscriptionCard, compact && styles.upgradeCard]}
+  >
     <View style={styles.subscriptionOverlay} />
     <View style={[styles.subscriptionBody, compact && styles.upgradeBody]}>
       <View style={styles.subscriptionCopy}>
-        <Text style={[styles.subscriptionTitle, compact && styles.upgradeTitle]}>{item.name}</Text>
-        <Text style={[styles.subscriptionDescription, compact && styles.upgradeDescription]}>
+        <Text
+          style={[styles.subscriptionTitle, compact && styles.upgradeTitle]}
+        >
+          {item.name}
+        </Text>
+        <Text
+          style={[
+            styles.subscriptionDescription,
+            compact && styles.upgradeDescription,
+          ]}
+        >
           {item.description}
         </Text>
       </View>
-      <View style={[styles.subscriptionPricing, compact && styles.upgradePricing]}>
+      <View
+        style={[styles.subscriptionPricing, compact && styles.upgradePricing]}
+      >
         <View style={[styles.priceBadge, compact && styles.upgradePriceBadge]}>
-          <Text style={[styles.priceValue, compact && styles.upgradePriceValue]}>{item.priceLabel}</Text>
-          <Text style={[styles.priceTerm, compact && styles.upgradePriceTerm]}>{item.intervalLabel}</Text>
+          <Text
+            style={[styles.priceValue, compact && styles.upgradePriceValue]}
+          >
+            {item.priceLabel}
+          </Text>
+          <Text style={[styles.priceTerm, compact && styles.upgradePriceTerm]}>
+            {item.intervalLabel}
+          </Text>
         </View>
-        <TouchableOpacity activeOpacity={0.9} style={[styles.getPlanButton, compact && styles.upgradeGetPlanButton]}>
-          <Text style={[styles.getPlanText, compact && styles.upgradeGetPlanText]}>Get Plan</Text>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={[styles.getPlanButton, compact && styles.upgradeGetPlanButton]}
+        >
+          <Text
+            style={[styles.getPlanText, compact && styles.upgradeGetPlanText]}
+          >
+            Get Plan
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -692,7 +796,7 @@ const WaterCard = ({
   containerStyle?: ViewStyle;
 }) => {
   const listRef = useRef<ScrollView>(null);
-  const pillLayouts = useRef<Record<number, {x: number; width: number}>>({});
+  const pillLayouts = useRef<Record<number, { x: number; width: number }>>({});
   const listWidth = useRef(0);
 
   // Keep the picked amount in view, whether it was chosen with the arrows or
@@ -706,7 +810,7 @@ const WaterCard = ({
 
     const centered = pill.x + pill.width / 2 - listWidth.current / 2;
 
-    listRef.current?.scrollTo({x: Math.max(0, centered), animated: true});
+    listRef.current?.scrollTo({ x: Math.max(0, centered), animated: true });
   }, []);
 
   useEffect(() => {
@@ -723,30 +827,41 @@ const WaterCard = ({
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.waterArrowButton}
-          onPress={() => cycleWaterStep(amount, -1, onSelect)}>
-          <Text style={styles.waterArrow}>{'<'}</Text>
+          onPress={() => cycleWaterStep(amount, -1, onSelect)}
+        >
+          <Text style={styles.waterArrow}>{"<"}</Text>
         </TouchableOpacity>
         <ScrollView
           ref={listRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           bounces={false}
-          onLayout={event => {
+          onLayout={(event) => {
             listWidth.current = event.nativeEvent.layout.width;
             revealStep(amount);
           }}
-          contentContainerStyle={styles.waterAmountList}>
-          {WATER_STEPS.map(step => (
+          contentContainerStyle={styles.waterAmountList}
+        >
+          {WATER_STEPS.map((step) => (
             <TouchableOpacity
               key={step}
               activeOpacity={0.9}
               onPress={() => onSelect(step)}
-              onLayout={event => {
-                const {x, width} = event.nativeEvent.layout;
-                pillLayouts.current[step] = {x, width};
+              onLayout={(event) => {
+                const { x, width } = event.nativeEvent.layout;
+                pillLayouts.current[step] = { x, width };
               }}
-              style={[styles.waterPill, amount === step && styles.waterPillActive]}>
-              <Text style={[styles.waterPillText, amount === step && styles.waterPillTextActive]}>
+              style={[
+                styles.waterPill,
+                amount === step && styles.waterPillActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.waterPillText,
+                  amount === step && styles.waterPillTextActive,
+                ]}
+              >
                 {formatWaterStep(step)}
               </Text>
             </TouchableOpacity>
@@ -755,14 +870,16 @@ const WaterCard = ({
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.waterArrowButton}
-          onPress={() => cycleWaterStep(amount, 1, onSelect)}>
-          <Text style={styles.waterArrow}>{'>'}</Text>
+          onPress={() => cycleWaterStep(amount, 1, onSelect)}
+        >
+          <Text style={styles.waterArrow}>{">"}</Text>
         </TouchableOpacity>
       </View>
       <TouchableOpacity
         activeOpacity={0.9}
         style={styles.waterAddButton}
-        onPress={() => onAddWater(amount)}>
+        onPress={() => onAddWater(amount)}
+      >
         {loading ? (
           <ActivityIndicator size="small" color={BACKGROUND} />
         ) : (
@@ -856,11 +973,12 @@ const OverviewCard = ({
       <ImageBackground
         source={
           item.image_url
-            ? {uri: item.image_url}
+            ? { uri: item.image_url }
             : overviewFallbackImage(item.id, item.kind)
         }
         imageStyle={styles.overviewImage}
-        style={styles.overviewCard}>
+        style={styles.overviewCard}
+      >
         <View style={styles.overviewOverlay} />
         {caption}
       </ImageBackground>
@@ -870,7 +988,7 @@ const OverviewCard = ({
 
 // Derived from the id rather than random, so a card keeps the same photo
 // across re-renders instead of reshuffling on every state change.
-const overviewFallbackImage = (seed: string, kind: 'meal' | 'workout') => {
+const overviewFallbackImage = (seed: string, kind: "meal" | "workout") => {
   let hash = 0;
 
   for (let index = 0; index < seed.length; index += 1) {
@@ -879,10 +997,12 @@ const overviewFallbackImage = (seed: string, kind: 'meal' | 'workout') => {
 
   const slot = (hash % WORKOUT_FALLBACK_IMAGE_COUNT) + 1;
 
-  return {uri: kind === 'meal' ? mealFallbackUri(slot) : workoutFallbackUri(slot)};
+  return {
+    uri: kind === "meal" ? mealFallbackUri(slot) : workoutFallbackUri(slot),
+  };
 };
 
-const ChevronRight = ({dark = false}: {dark?: boolean}) => (
+const ChevronRight = ({ dark = false }: { dark?: boolean }) => (
   <Svg width={28} height={28} viewBox="0 0 28 28" fill="none">
     <Path
       d="M10 6L18 14L10 22"
@@ -894,10 +1014,20 @@ const ChevronRight = ({dark = false}: {dark?: boolean}) => (
   </Svg>
 );
 
-const ClockIcon = ({small = false}: {small?: boolean}) => (
-  <Svg width={small ? 14 : 16} height={small ? 14 : 16} viewBox="0 0 16 16" fill="none">
+const ClockIcon = ({ small = false }: { small?: boolean }) => (
+  <Svg
+    width={small ? 14 : 16}
+    height={small ? 14 : 16}
+    viewBox="0 0 16 16"
+    fill="none"
+  >
     <Circle cx="8" cy="8" r="7" stroke="#FFFFFF" strokeWidth="1.5" />
-    <Path d="M8 4.5V8L10.5 9.5" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
+    <Path
+      d="M8 4.5V8L10.5 9.5"
+      stroke="#FFFFFF"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
   </Svg>
 );
 
@@ -916,7 +1046,7 @@ type OverviewCardData = {
   subtitle: string;
   date?: string;
   image_url?: string;
-  kind: 'meal' | 'workout';
+  kind: "meal" | "workout";
 };
 
 const buildPromoPlans = (
@@ -931,19 +1061,23 @@ const buildPromoPlans = (
     ...toArray(profile?.available_plans),
     ...toArray(mobilePlans?.plans),
   ];
-  const planSection = firstObject(mobilePlans?.section, homepage?.section, profile?.section);
+  const planSection = firstObject(
+    mobilePlans?.section,
+    homepage?.section,
+    profile?.section,
+  );
   if (!sources.length) {
     return [];
   }
 
   return sources.slice(0, 5).map((item, index) => ({
     id: String(item?.id ?? `plan-${index}`),
-    name: firstString(item?.name, item?.title, 'Plan'),
+    name: firstString(item?.name, item?.title, "Plan"),
     description: firstString(
       item?.description,
       item?.short_description,
       planSection?.description,
-      'Enjoy a 7-day free trial. Cancel anytime.',
+      "Enjoy a 7-day free trial. Cancel anytime.",
     ),
     priceLabel: formatOptionalPrice(
       item?.price,
@@ -953,20 +1087,26 @@ const buildPromoPlans = (
     intervalLabel: firstString(
       item?.interval,
       item?.pricings?.[0]?.interval,
-      'per month',
+      "per month",
     ),
-    image_url: firstString(item?.image_url, item?.thumbnail_url, planSection?.image_url),
+    image_url: firstString(
+      item?.image_url,
+      item?.thumbnail_url,
+      planSection?.image_url,
+    ),
   }));
 };
 
-function buildUpgradePlans(upgradeOffersSection?: HomepageSection): PromoPlan[] {
+function buildUpgradePlans(
+  upgradeOffersSection?: HomepageSection,
+): PromoPlan[] {
   return toArray(upgradeOffersSection?.upgrades).map((item, index) => ({
     id: String(item?.id ?? `upgrade-${index}`),
-    name: firstString(item?.name, item?.title, 'Upgrade'),
+    name: firstString(item?.name, item?.title, "Upgrade"),
     description: firstString(
       item?.description,
       item?.features,
-      'Enjoy a 7-day free trial. Cancel anytime.',
+      "Enjoy a 7-day free trial. Cancel anytime.",
     ),
     priceLabel: formatOptionalPrice(
       item?.starting_price,
@@ -974,9 +1114,9 @@ function buildUpgradePlans(upgradeOffersSection?: HomepageSection): PromoPlan[] 
       item?.pricing_options?.[0]?.price,
     ),
     intervalLabel: firstString(
-      item?.pricing_options?.[0]?.type === 'monthly' ? 'per month' : '',
+      item?.pricing_options?.[0]?.type === "monthly" ? "per month" : "",
       item?.interval,
-      'per month',
+      "per month",
     ),
     image_url: firstString(item?.image_url, item?.thumbnail_url),
   }));
@@ -1007,7 +1147,7 @@ const buildWorkoutOverviewCards = (
       ),
       subtitle: firstString(
         formatOptionalMetric(
-          'mins',
+          "mins",
           (item?.next_exercise as ApiItem | undefined)?.estimated_minutes,
           item?.total_estimated_minutes,
           item?.duration,
@@ -1015,10 +1155,10 @@ const buildWorkoutOverviewCards = (
           item?.minutes,
         ),
         item?.focus,
-        toArray(item?.categories).join(', '),
+        toArray(item?.categories).join(", "),
       ),
       image_url: firstString(item?.image_url, item?.thumbnail_url),
-      kind: 'workout' as const,
+      kind: "workout" as const,
     }));
 
 const buildMealOverviewCards = (
@@ -1050,7 +1190,7 @@ const buildMealOverviewCards = (
           dayLabels[index % dayLabels.length],
         ),
         subtitle: formatOptionalMetric(
-          'kcal',
+          "kcal",
           item?.target_kcal,
           item?.kcal,
           item?.calories,
@@ -1060,7 +1200,7 @@ const buildMealOverviewCards = (
           item?.thumbnail_url,
           featured?.image_url,
         ),
-        kind: 'meal' as const,
+        kind: "meal" as const,
       };
     });
 
@@ -1068,9 +1208,9 @@ const normalizePlanAlias = (planAlias: string) =>
   planAlias
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/&/g, '+')
-    .replace(/plus/g, '+');
+    .replace(/\s+/g, "")
+    .replace(/&/g, "+")
+    .replace(/plus/g, "+");
 
 const buildTips = (
   homepage: HomepageData | null,
@@ -1087,12 +1227,12 @@ const buildTips = (
     .slice(0, 3)
     .map((item, index) => ({
       id: String(item?.id ?? index),
-      title: firstString(item?.title, item?.name, 'Tip'),
+      title: firstString(item?.title, item?.name, "Tip"),
       description: firstString(
         item?.message,
         item?.description,
         item?.content,
-        '',
+        "",
       ),
     }));
 
@@ -1131,16 +1271,16 @@ const buildWeeklyBars = (
   const weekStart = isoDate(workoutProgressSection?.week?.start_date);
 
   if (weekStart) {
-    return weekDates(weekStart).map(date => ({
-      label: weekdayLabel(date, dayLabels) ?? '',
+    return weekDates(weekStart).map((date) => ({
+      label: weekdayLabel(date, dayLabels) ?? "",
       value: clampNumber(completionByDate.get(date) ?? 0, 0, 1),
     }));
   }
 
   if (!source.length) return [];
 
-  const uniqueDays = Array.from(new Set(source.map(d => d.date)))
-    .map(date => source.find(d => d.date === date))
+  const uniqueDays = Array.from(new Set(source.map((d) => d.date)))
+    .map((date) => source.find((d) => d.date === date))
     .slice(0, 7);
 
   return uniqueDays.map((item, index) => ({
@@ -1157,7 +1297,7 @@ const buildWeeklyBars = (
 
 // Seven consecutive YYYY-MM-DD strings starting at the given day.
 const weekDates = (start: string) => {
-  const [year, month, day] = start.split('-').map(Number);
+  const [year, month, day] = start.split("-").map(Number);
   const dates: string[] = [];
 
   for (let offset = 0; offset < 7; offset += 1) {
@@ -1171,7 +1311,7 @@ const weekDates = (start: string) => {
 // Today's calendar date where the user is, not in UTC.
 const localIsoDate = () => {
   const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, '0');
+  const pad = (value: number) => String(value).padStart(2, "0");
 
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
@@ -1181,15 +1321,16 @@ const sentenceCase = (value: string) =>
   value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 
 const isoDate = (value: unknown) => {
-  const match = /^\d{4}-\d{2}-\d{2}/.exec(String(value ?? ''));
+  const match = /^\d{4}-\d{2}-\d{2}/.exec(String(value ?? ""));
 
   return match ? match[0] : undefined;
 };
 
 const getHomepageSection = (homepage: HomepageData | null, type: string) =>
-  toArray(homepage?.sections).find(section => section?.type === type);
+  toArray(homepage?.sections).find((section) => section?.type === type);
 
-const normalizeSubscriptionStatus = (value: string) => value.trim().toLowerCase();
+const normalizeSubscriptionStatus = (value: string) =>
+  value.trim().toLowerCase();
 
 const profileHasActivePlan = (
   profile: ProfileData | null | undefined,
@@ -1197,12 +1338,12 @@ const profileHasActivePlan = (
 ) =>
   Boolean(
     profile?.active_plan ||
-      profile?.current_subscription ||
-      profile?.subscription ||
-      profile?.user?.has_active_plan ||
-      profile?.has_active_plan ||
-      loginUser?.data?.active_plan ||
-      loginUser?.data?.user?.has_active_plan,
+    profile?.current_subscription ||
+    profile?.subscription ||
+    profile?.user?.has_active_plan ||
+    profile?.has_active_plan ||
+    loginUser?.data?.active_plan ||
+    loginUser?.data?.user?.has_active_plan,
   );
 
 const cycleWaterStep = (
@@ -1232,7 +1373,7 @@ const waterFillLevel = (amount: number) => {
 // Dates arrive as plain YYYY-MM-DD, so read them as UTC. Letting Date parse
 // them locally shifts the day backwards west of Greenwich.
 const weekdayLabel = (value: unknown, names: string[]) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ""));
 
   if (!match) {
     return undefined;
@@ -1250,7 +1391,13 @@ const formatWaterStep = (value: number) =>
 
 const toWorkoutSection = (value?: ApiItem) => ({
   id: Number(value?.id ?? 0),
-  section_name: firstString(value?.category, value?.title, value?.name, 'Workout'),
+  section_name: firstString(
+    value?.category_name,
+    value?.category,
+    value?.title,
+    value?.name,
+    "Workout",
+  ),
   exercises: value?.exercises ?? [],
 });
 
@@ -1258,31 +1405,31 @@ const toArray = (value: unknown): ApiItem[] =>
   Array.isArray(value)
     ? value.filter(
         (item): item is ApiItem =>
-          typeof item === 'object' && item !== null && !Array.isArray(item),
+          typeof item === "object" && item !== null && !Array.isArray(item),
       )
     : [];
 
 const firstObject = (...values: unknown[]): ApiItem | undefined =>
   values.find(
     (value): value is ApiItem =>
-      typeof value === 'object' && value !== null && !Array.isArray(value),
+      typeof value === "object" && value !== null && !Array.isArray(value),
   );
 
 const firstString = (...values: unknown[]) => {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim().length) return value.trim();
+    if (typeof value === "string" && value.trim().length) return value.trim();
   }
-  return '';
+  return "";
 };
 
 const firstNumber = (...values: unknown[]) => {
   for (const value of values) {
     const numeric =
-      typeof value === 'number'
+      typeof value === "number"
         ? value
-        : typeof value === 'string'
-        ? Number(value.replace(/[^0-9.-]/g, ''))
-        : NaN;
+        : typeof value === "string"
+          ? Number(value.replace(/[^0-9.-]/g, ""))
+          : NaN;
     if (!Number.isNaN(numeric) && Number.isFinite(numeric)) {
       return numeric;
     }
@@ -1293,10 +1440,10 @@ const firstNumber = (...values: unknown[]) => {
 const firstOptionalNumber = (...values: unknown[]): number | null => {
   for (const value of values) {
     const numeric =
-      typeof value === 'number'
+      typeof value === "number"
         ? value
-        : typeof value === 'string'
-          ? Number(value.replace(/[^0-9.-]/g, ''))
+        : typeof value === "string"
+          ? Number(value.replace(/[^0-9.-]/g, ""))
           : NaN;
     if (Number.isFinite(numeric)) return numeric;
   }
@@ -1305,12 +1452,12 @@ const firstOptionalNumber = (...values: unknown[]): number | null => {
 
 const formatOptionalPrice = (...values: unknown[]) => {
   const value = firstOptionalNumber(...values);
-  return value === null ? '' : `${value}$`;
+  return value === null ? "" : `${value}$`;
 };
 
 const formatOptionalMetric = (unit: string, ...values: unknown[]) => {
   const value = firstOptionalNumber(...values);
-  return value === null ? '' : `${value} ${unit}`;
+  return value === null ? "" : `${value} ${unit}`;
 };
 
 const clampNumber = (value: number, min: number, max: number) =>
@@ -1328,8 +1475,8 @@ const styles = StyleSheet.create({
   loadingScreen: {
     flex: 1,
     backgroundColor: BACKGROUND,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     paddingHorizontal: 24,
@@ -1338,9 +1485,9 @@ const styles = StyleSheet.create({
   header: {
     marginTop: 14,
     marginBottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 16,
   },
   headerCopy: {
@@ -1348,23 +1495,23 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   greeting: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 28,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     marginBottom: 6,
   },
   subtitle: {
     color: MUTED,
     fontSize: 14,
-    fontFamily: 'Raleway-Regular',
+    fontFamily: "Raleway-Regular",
     includeFontPadding: false,
   },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#4B4B4B',
+    backgroundColor: "#4B4B4B",
     flexShrink: 0,
   },
   sectionBlock: {
@@ -1372,20 +1519,20 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   sectionTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontFamily: 'Raleway-Bold',
+    fontFamily: "Raleway-Bold",
     includeFontPadding: false,
   },
   sectionAction: {
     color: ACCENT,
     fontSize: 14,
-    fontFamily: 'Raleway-Bold',
+    fontFamily: "Raleway-Bold",
     includeFontPadding: false,
   },
   promoList: {
@@ -1397,16 +1544,16 @@ const styles = StyleSheet.create({
   subscriptionCard: {
     width: 290,
     minHeight: 160,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderRadius: 28,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   upgradeCard: {
     width: 279,
     minHeight: 112,
     height: 112,
     borderRadius: 22,
-    backgroundColor: '#244915',
+    backgroundColor: "#244915",
   },
   subscriptionImage: {
     borderRadius: 28,
@@ -1419,13 +1566,13 @@ const styles = StyleSheet.create({
   },
   subscriptionOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(40, 84, 18, 0.46)',
+    backgroundColor: "rgba(40, 84, 18, 0.46)",
   },
   subscriptionBody: {
     paddingHorizontal: 26,
     paddingVertical: 22,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 14,
   },
   upgradeBody: {
@@ -1436,12 +1583,12 @@ const styles = StyleSheet.create({
   subscriptionCopy: {
     flex: 1,
     minWidth: 0,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   subscriptionTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 24,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     marginBottom: 12,
   },
@@ -1450,10 +1597,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   subscriptionDescription: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
   },
   upgradeDescription: {
     fontSize: 7,
@@ -1462,8 +1609,8 @@ const styles = StyleSheet.create({
   subscriptionPricing: {
     width: 112,
     flexShrink: 0,
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    justifyContent: "space-between",
+    alignItems: "flex-end",
   },
   upgradePricing: {
     width: 90,
@@ -1484,21 +1631,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   priceValue: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 30,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
-    textAlign: 'center',
+    textAlign: "center",
   },
   upgradePriceValue: {
     fontSize: 25,
   },
   priceTerm: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
     includeFontPadding: false,
-    textAlign: 'center',
+    textAlign: "center",
   },
   upgradePriceTerm: {
     fontSize: 8,
@@ -1517,7 +1664,7 @@ const styles = StyleSheet.create({
   getPlanText: {
     color: BACKGROUND,
     fontSize: 14,
-    fontFamily: 'Raleway-Bold',
+    fontFamily: "Raleway-Bold",
     includeFontPadding: false,
   },
   upgradeGetPlanText: {
@@ -1525,79 +1672,79 @@ const styles = StyleSheet.create({
   },
   pagination: {
     marginTop: 14,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 10,
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#777777',
+    backgroundColor: "#777777",
   },
   paginationDotActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   topStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "stretch",
+    justifyContent: "space-between",
     marginBottom: 28,
-    width: '100%',
+    width: "100%",
   },
   singleStatCard: {
-    width: '100%',
+    width: "100%",
   },
   waterCard: {
-    width: '47%',
+    width: "47%",
     minWidth: 0,
     backgroundColor: SURFACE,
     borderRadius: 22,
     paddingHorizontal: 10,
     paddingVertical: 14,
-    shadowColor: '#000000',
+    shadowColor: "#000000",
     shadowOpacity: 0.22,
     shadowRadius: 12,
-    shadowOffset: {width: 0, height: 6},
+    shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
   waterTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 15,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
   glassWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 10,
   },
   waterControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
-    width: '100%',
-    overflow: 'hidden',
+    width: "100%",
+    overflow: "hidden",
   },
   waterArrowButton: {
     width: 18,
     height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
   waterArrow: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontFamily: 'Raleway-Bold',
+    fontFamily: "Raleway-Bold",
     includeFontPadding: false,
-    textAlign: 'center',
+    textAlign: "center",
   },
   waterAmountList: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 6,
     paddingHorizontal: 4,
   },
@@ -1606,58 +1753,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
     minWidth: 48,
-    alignItems: 'center',
+    alignItems: "center",
   },
   waterPillActive: {
     backgroundColor: ACCENT,
   },
   waterPillText: {
-    color: '#CFCFCF',
+    color: "#CFCFCF",
     fontSize: 10,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
     includeFontPadding: false,
   },
   waterPillTextActive: {
     color: BACKGROUND,
-    fontFamily: 'Raleway-Bold',
+    fontFamily: "Raleway-Bold",
   },
   waterAddButton: {
-    backgroundColor: '#232323',
+    backgroundColor: "#232323",
     borderRadius: 16,
     paddingVertical: 9,
     paddingHorizontal: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   waterAddButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 11,
-    fontFamily: 'Raleway-SemiBold',
+    fontFamily: "Raleway-SemiBold",
     includeFontPadding: false,
-    textAlign: 'center',
+    textAlign: "center",
   },
   ringCard: {
-    width: '47%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "47%",
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 178,
     minWidth: 0,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   ringCenter: {
-    position: 'absolute',
-    alignItems: 'center',
+    position: "absolute",
+    alignItems: "center",
   },
   ringValue: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 17,
-    fontFamily: 'Raleway-Bold',
+    fontFamily: "Raleway-Bold",
     includeFontPadding: false,
     marginBottom: 4,
   },
   ringMeta: {
     color: MUTED,
     fontSize: 10,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
     includeFontPadding: false,
   },
   quickActionCard: {
@@ -1665,15 +1812,15 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     paddingHorizontal: 26,
     paddingVertical: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 20,
   },
   quickActionTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 20,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     flexShrink: 1,
     paddingRight: 12,
@@ -1684,52 +1831,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 24,
     marginBottom: 30,
-    shadowColor: '#000000',
+    shadowColor: "#000000",
     shadowOpacity: 0.22,
     shadowRadius: 12,
-    shadowOffset: {width: 0, height: 6},
+    shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
   weekBarsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 22,
-    width: '100%',
+    width: "100%",
   },
   barColumn: {
-    alignItems: 'center',
+    alignItems: "center",
     width: `${100 / 7}%`,
   },
   barTrack: {
     width: 15,
     height: 132,
     borderRadius: 8,
-    backgroundColor: '#000000',
-    justifyContent: 'flex-end',
+    backgroundColor: "#000000",
+    justifyContent: "flex-end",
     paddingBottom: 0,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 10,
   },
   barFill: {
-    width: '100%',
+    width: "100%",
     borderRadius: 8,
     backgroundColor: ACCENT,
   },
   barLabel: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
     includeFontPadding: false,
   },
   metaLabel: {
     color: MUTED,
     fontSize: 12,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
     includeFontPadding: false,
     marginBottom: 10,
   },
   tag: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     backgroundColor: ACCENT,
     borderRadius: 16,
     paddingHorizontal: 14,
@@ -1739,45 +1886,45 @@ const styles = StyleSheet.create({
   tagText: {
     color: BACKGROUND,
     fontSize: 12,
-    fontFamily: 'Raleway-Bold',
+    fontFamily: "Raleway-Bold",
     includeFontPadding: false,
   },
   primaryCardTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 22,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     marginBottom: 10,
     flexShrink: 1,
   },
   durationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 22,
   },
   durationText: {
     color: MUTED,
     fontSize: 13,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
     includeFontPadding: false,
   },
   primaryCta: {
     backgroundColor: ACCENT,
     borderRadius: 32,
-    overflow: 'hidden',
+    overflow: "hidden",
     paddingLeft: 22,
     paddingRight: 10,
     paddingVertical: 10,
     minHeight: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   primaryCtaText: {
     color: BACKGROUND,
     fontSize: 18,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     flexShrink: 1,
     paddingRight: 12,
@@ -1786,9 +1933,9 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#1B1B1B',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1B1B1B",
+    alignItems: "center",
+    justifyContent: "center",
   },
   overviewList: {
     paddingRight: SCREEN_PADDING.right,
@@ -1797,51 +1944,76 @@ const styles = StyleSheet.create({
     width: 215,
     height: 285,
     borderRadius: 20,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
+    overflow: "hidden",
+    justifyContent: "flex-end",
   },
   overviewImage: {
     borderRadius: 20,
   },
   overviewOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
     borderRadius: 20,
   },
   overviewContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     padding: 20,
     paddingBottom: 25,
+  },
+  overviewMealContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   overviewCopy: {
     flex: 1,
     minWidth: 0,
   },
   overviewDay: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 19,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     marginBottom: 6,
     flexShrink: 1,
   },
+  overviewTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  overviewCategory: {
+    color: ACCENT,
+    fontSize: 14,
+    fontFamily: "Raleway-Bold",
+    includeFontPadding: false,
+    marginBottom: 12,
+  },
+  overviewNextExercise: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 21,
+    fontFamily: "Raleway-SemiBold",
+    includeFontPadding: false,
+  },
+  overviewMetrics: {
+    gap: 8,
+    marginTop: 14,
+  },
   overviewDurationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   overviewDuration: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
     includeFontPadding: false,
   },
   tipsTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     marginBottom: 14,
   },
@@ -1851,12 +2023,12 @@ const styles = StyleSheet.create({
     minHeight: 220,
     paddingHorizontal: 24,
     paddingVertical: 22,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   tipHeadline: {
     color: BACKGROUND,
     fontSize: 22,
-    fontFamily: 'Raleway-Black',
+    fontFamily: "Raleway-Black",
     includeFontPadding: false,
     marginBottom: 12,
   },
@@ -1864,7 +2036,7 @@ const styles = StyleSheet.create({
     color: BACKGROUND,
     fontSize: 15,
     lineHeight: 24,
-    fontFamily: 'Raleway-Medium',
+    fontFamily: "Raleway-Medium",
   },
 });
 

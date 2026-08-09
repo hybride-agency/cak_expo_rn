@@ -40,7 +40,11 @@ type TabKey = "home" | "meal" | "workout" | "profile";
 
 export type WorkoutFlowParamList = {
   WorkoutSectionView: { section: WorkoutSection; dayName: string };
-  ExercisePlayerView: { exercise: WorkoutExercise; sectionName?: string };
+  ExercisePlayerView: {
+    exercise: WorkoutExercise;
+    sectionName?: string;
+    hasVideoAccess: boolean;
+  };
   WorkoutSuccessView: { exercise: WorkoutExercise };
   WorkoutSurveyView: { currentExerciseId?: number };
 };
@@ -51,13 +55,13 @@ export type HomeStackParamList = {
 
 export type MealStackParamList = {
   // date (YYYY-MM-DD) opens that day instead of today.
-  MealPlannerView: {date?: string} | undefined;
+  MealPlannerView: { date?: string } | undefined;
   MealDetailsView: { meal: DisplayMeal };
 };
 
 export type WorkoutStackParamList = {
   // date (YYYY-MM-DD) opens that day instead of today.
-  FitnessPlanView: {date?: string} | undefined;
+  FitnessPlanView: { date?: string } | undefined;
 } & WorkoutFlowParamList;
 
 export type ProfileStackParamList = {

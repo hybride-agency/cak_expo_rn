@@ -19,7 +19,11 @@ import type {WorkoutExercise} from '../../types/plans';
 const ACCENT = '#68FE00';
 const BACKGROUND = '#171717';
 
-type ExerciseRoute = {exercise: WorkoutExercise; sectionName?: string};
+type ExerciseRoute = {
+  exercise: WorkoutExercise;
+  sectionName?: string;
+  hasVideoAccess: boolean;
+};
 
 const WorkoutSurveyView = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
@@ -95,7 +99,11 @@ const WorkoutSurveyView = () => {
     fitnessPlan.days.forEach(day => {
       day.sections?.forEach(section => {
         section.exercises?.forEach(ex => {
-          allExercises.push({exercise: ex, sectionName: section.section_name});
+          allExercises.push({
+            exercise: ex,
+            sectionName: section.section_name,
+            hasVideoAccess: fitnessPlan.has_video_access === true,
+          });
         });
       });
     });

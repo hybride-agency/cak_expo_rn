@@ -81,6 +81,7 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     ],
     'expo-apple-authentication',
     'expo-notifications',
+    'expo-video',
     ...(googleIosUrlScheme
       ? [
           [
