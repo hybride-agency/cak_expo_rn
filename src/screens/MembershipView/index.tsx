@@ -69,16 +69,20 @@ const MembershipView = ({navigation}: Props) => {
     planInfo?.pricing ||
     planInfo?.pricings?.[0] ||
     {};
-  const planName = planInfo.display_name || planInfo.name || 'No active plan';
-  const price = formatPrice(pricing?.price ?? subscription?.amount_paid);
+  const planName = currentPlan?.name || planInfo.display_name || planInfo.name || 'No active plan';
+  const price = formatPrice(
+    currentPlan?.amount_paid ?? pricing?.price ?? subscription?.amount_paid,
+    currentPlan?.currency ?? pricing?.currency ?? subscription?.currency
+  );
   const priceInterval = pricing?.interval ? `/${pricing.interval}` : '';
   const expiryDate = formatDate(
+    currentPlan?.end_date ||
     subscription?.end_date ||
       subscription?.expires_at ||
       profile?.active_plan?.end_date ||
       planInfo?.end_date,
   );
-  const features = parseFeatures(planInfo?.features);
+  const features = parseFeatures(currentPlan?.features || planInfo?.features);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -255,9 +259,14 @@ const parseFeatures = (value: unknown): string[] => {
     : [];
 };
 
-const formatPrice = (value: unknown) => {
+const formatPrice = (value: unknown, currency?: unknown) => {
   const amount = Number(value);
-  return Number.isFinite(amount) ? `$${amount}` : '—';
+  if (!Number.isFinite(amount)) return '—';
+  
+  let currString = typeof currency === 'string' && currency.trim() ? currency.trim() : '$';
+  if (currString === 'USD') currString = '$';
+  
+  return currString === '$' ? `$${amount}` : `${currString} ${amount}`;
 };
 
 const formatDate = (value: unknown) => {

@@ -1,5 +1,4 @@
 import {useCallback, useState} from 'react';
-import * as WebBrowser from 'expo-web-browser';
 import {useAppDispatch} from '../store';
 import {
   createWhishCheckout,
@@ -12,6 +11,7 @@ import {getSubscriptionHistory} from '../slice/SubscriptionHistorySlice';
 import {generateUuid} from '../utils/uuid';
 import {clearPendingPayment, savePendingPayment} from '../utils/pendingPayment';
 import {WHISH_TERMINAL_STATUSES, WhishPayment} from '../types/payments';
+import {openWhishBrowserAsync} from '../utils/whishBrowser';
 
 export type WhishFlowStatus =
   | 'idle'
@@ -26,14 +26,10 @@ export type WhishFlowStatus =
 const POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MS = 2500;
 
-// Used when the user explicitly closed the checkout browser themselves
-// (WebBrowser result type "cancel") rather than it being dismissed for
-// them. A short recheck still confirms with Laravel — a webhook may have
-// landed a split second before they tapped Done — but there is no reason
-// to sit through the full ~50s poll pretending we're "confirming" a
-// payment the user visibly walked away from.
-const QUICK_POLL_ATTEMPTS = 3;
-const QUICK_POLL_INTERVAL_MS = 2000;
+// Once the browser is gone, make one authoritative check with Laravel. A
+// terminal result is shown normally; a still-pending checkout is treated as
+// closed so the user is never left staring at a confirmation loader.
+const QUICK_POLL_ATTEMPTS = 1;
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -56,7 +52,6 @@ export const useWhishCheckout = () => {
       setStatus('polling');
 
       const attempts = options?.quick ? QUICK_POLL_ATTEMPTS : POLL_ATTEMPTS;
-      const intervalMs = options?.quick ? QUICK_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
 
       for (let attempt = 0; attempt < attempts; attempt += 1) {
         const result = await dispatch(fetchWhishPayment({paymentId}));
@@ -85,7 +80,9 @@ export const useWhishCheckout = () => {
           return;
         }
 
-        await sleep(intervalMs);
+        if (attempt < attempts - 1) {
+          await sleep(POLL_INTERVAL_MS);
+        }
       }
 
       // The payment record stays pending in storage either way, so a real
@@ -113,8 +110,15 @@ export const useWhishCheckout = () => {
         started_at: new Date().toISOString(),
       });
 
-      const browserResult = await WebBrowser.openBrowserAsync(createdPayment.collect_url);
-      await pollUntilTerminal(createdPayment.id, {quick: browserResult.type === 'cancel'});
+      const browserResult = await openWhishBrowserAsync(createdPayment.collect_url);
+
+      if (browserResult.type === 'locked') {
+        setStatus('error');
+        setError('Another browser window is already open. Close it and try again.');
+        return;
+      }
+
+      await pollUntilTerminal(createdPayment.id, {quick: true});
     },
     [pollUntilTerminal],
   );
