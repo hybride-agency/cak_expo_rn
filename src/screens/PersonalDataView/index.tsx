@@ -481,36 +481,6 @@ const styles = StyleSheet.create({
   saveContainer: { marginTop: 28 },
 });
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export const validate = (edits: ProfileUpdatePayload) => {
-  const errors: Partial<Record<EditableField, string>> = {};
-
-  if (edits.name !== undefined) {
-    if (!edits.name.trim()) {
-      errors.name = "Name is required";
-    } else if (edits.name.length > 255) {
-      errors.name = "Name is too long";
-    }
-  }
-
-  if (edits.email !== undefined) {
-    if (!edits.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!EMAIL_PATTERN.test(edits.email.trim())) {
-      errors.email = "Enter a valid email";
-    } else if (edits.email.length > 255) {
-      errors.email = "Email is too long";
-    }
-  }
-
-  if (edits.phone_number && edits.phone_number.length > 30) {
-    errors.phone_number = "Phone number is too long";
-  }
-
-  return errors;
-};
-
 const pickerInitialValue = (
   field: PickerField | null,
   valueOf: (key: EditableField) => unknown,
@@ -534,3 +504,5 @@ const displayValue = (value: unknown, fallback = "—") => {
 
   return fallback;
 };
+
+export default PersonalDataView;

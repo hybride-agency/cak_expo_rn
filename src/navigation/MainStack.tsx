@@ -50,12 +50,14 @@ export type HomeStackParamList = {
 } & WorkoutFlowParamList;
 
 export type MealStackParamList = {
-  MealPlannerView: undefined;
+  // date (YYYY-MM-DD) opens that day instead of today.
+  MealPlannerView: {date?: string} | undefined;
   MealDetailsView: { meal: DisplayMeal };
 };
 
 export type WorkoutStackParamList = {
-  FitnessPlanView: undefined;
+  // date (YYYY-MM-DD) opens that day instead of today.
+  FitnessPlanView: {date?: string} | undefined;
 } & WorkoutFlowParamList;
 
 export type ProfileStackParamList = {

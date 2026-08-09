@@ -61,6 +61,7 @@ export interface SubscriptionData extends ApiItem {
 }
 
 export interface HomepageSection extends ApiItem {
+  week?: {start_date?: string; end_date?: string};
   upgrades?: ApiItem[];
   days?: ApiItem[];
   daily_progress?: ApiItem[];

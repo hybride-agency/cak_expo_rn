@@ -11,15 +11,31 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Path} from 'react-native-svg';
 import {getFitnessPlan} from '../../slice/HomeSlice';
 import {useAppDispatch, useAppSelector} from '../../store';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {WorkoutStackParamList} from '../../navigation/MainStack';
 import type {FitnessPlanDay} from '../../types/plans';
+
+// Today where the user is. toISOString() would report the UTC day, which is
+// already tomorrow (or still yesterday) for much of the world.
+// Plan endpoints may send "2026-08-09" or "2026-08-09T00:00:00.000000Z";
+// compare on the calendar date alone.
+const isoDate = (value?: string) => value?.slice(0, 10);
+
+const localIsoDate = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
 
 const ACCENT = '#8FFF19';
 
 const FitnessPlanView = () => {
   const navigation = useNavigation<NativeStackNavigationProp<WorkoutStackParamList>>();
+  const route = useRoute<RouteProp<WorkoutStackParamList, 'FitnessPlanView'>>();
+  const requestedDate = route.params?.date;
   const dispatch = useAppDispatch();
   const {fitnessPlan, loading} = useAppSelector(state => state.home);
   const [selectedDayIndex, setSelectedDayIndex] = React.useState(0);
@@ -36,14 +52,29 @@ const FitnessPlanView = () => {
   // Sync selectedDayIndex to "today" if available on first load
   useEffect(() => {
     if (fitnessPlan?.days && !hasSyncedToday.current) {
-      const today = new Date().toISOString().split('T')[0];
-      const todayIndex = fitnessPlan.days.findIndex(d => d.date === today);
+      const today = localIsoDate();
+      const todayIndex = fitnessPlan.days.findIndex(d => isoDate(d.date) === today);
       if (todayIndex !== -1) {
         setSelectedDayIndex(todayIndex);
       }
       hasSyncedToday.current = true;
     }
   }, [fitnessPlan]);
+
+  // Opening a specific day from elsewhere wins over the today sync above, and
+  // re-runs if the screen is already mounted when another day is picked.
+  useEffect(() => {
+    if (!requestedDate || days.length === 0) {
+      return;
+    }
+
+    const index = days.findIndex(day => isoDate(day.date) === requestedDate);
+
+    if (index !== -1) {
+      setSelectedDayIndex(index);
+      hasSyncedToday.current = true;
+    }
+  }, [days, requestedDate]);
 
   const formattedDate = useMemo(() => {
     if (!activeDay?.date) return 'Fitness Plan';

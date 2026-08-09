@@ -1,4 +1,10 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -38,15 +44,34 @@ import type {
 } from '../../types/home';
 import type {FitnessPlan, MealPlan, WorkoutExercise} from '../../types/plans';
 import type {AuthResponse} from '../../types/auth';
+import WaterGlass from './WaterGlass';
 
 const ACCENT = '#68FE00';
 const BACKGROUND = '#171717';
-const SURFACE = '#343434';
+const SURFACE = '#232323';
+const MUTED = '#9B9B9B';
 const WATER_STEPS = [150, 250, 300, 500, 1000];
 const FALLBACK_AVATAR = require('../../../assets/images/male.png');
 const FALLBACK_SUBSCRIPTION_IMAGE = require('../../../assets/images/generate.png');
+// Stand-ins for days the API sends without an image_url. LoremFlickr serves
+// free keyword-matched photos with no API key; ?lock pins each slot to one
+// image so a card never changes photo between renders.
+const WORKOUT_FALLBACK_IMAGE_COUNT = 12;
+const workoutFallbackUri = (slot: number) =>
+  `https://loremflickr.com/600/800/gym,workout,fitness?lock=${slot}`;
+const mealFallbackUri = (slot: number) =>
+  `https://loremflickr.com/600/800/food,meal,healthy?lock=${slot}`;
 const ListSeparator = () => <View style={styles.listSeparator} />;
 const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayNames = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
 
 const HomepageListView = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
@@ -93,6 +118,16 @@ const HomepageListView = () => {
     fetchHomeData();
   }, [fetchHomeData]);
 
+  // Tapping the Home tab refreshes, including when this screen is already
+  // showing — which is the case a focus listener would miss.
+  useEffect(() => {
+    const parent = navigation.getParent();
+
+    return parent?.addListener('tabPress' as never, () => {
+      dispatch(getHomepage());
+    });
+  }, [dispatch, navigation]);
+
   const resolvedProfile = useMemo(
     () => firstObject(profile?.user, homepage?.user, loginUser?.data?.user, loginUser?.user, profile),
     [homepage, loginUser, profile],
@@ -116,6 +151,7 @@ const HomepageListView = () => {
   const waterSection = getHomepageSection(homepage, 'water_intake');
   const mealKcalSection = getHomepageSection(homepage, 'meal_kcal_progress');
   const upgradeOffersSection = getHomepageSection(homepage, 'upgrade_offers');
+  const mealDaysSection = getHomepageSection(homepage, 'meal_days_preview');
 
   const subscriptionStatus = normalizeSubscriptionStatus(
     firstString(
@@ -216,7 +252,25 @@ const HomepageListView = () => {
     fitnessPlan?.workout,
   );
 
+  // today_next_exercise carries the exercise but not the day's focus, so pair
+  // it with the matching daily_progress row.
+  const todayProgress = useMemo(() => {
+    const days = toArray(workoutProgressSection?.daily_progress);
+    const today = localIsoDate();
+
+    return (
+      days.find(day => isoDate(day?.date) === today) ??
+      days.find(
+        day =>
+          todayWorkout?.id !== undefined &&
+          (day?.next_exercise as ApiItem | undefined)?.id === todayWorkout.id,
+      )
+    );
+  }, [todayWorkout, workoutProgressSection]);
+
   const workoutDuration = firstNumber(
+    todayWorkout?.day_total_estimated_minutes,
+    todayProgress?.total_estimated_minutes,
     todayWorkout?.duration_minutes,
     todayWorkout?.duration,
     todayWorkout?.minutes,
@@ -239,8 +293,13 @@ const HomepageListView = () => {
   );
 
   const overviewCards = useMemo(
-    () => buildOverviewCards(activePlanAlias, homepage, fitnessPlan, mealPlan, weeklyWorkoutSection),
-    [activePlanAlias, fitnessPlan, homepage, mealPlan, weeklyWorkoutSection],
+    () => buildWorkoutOverviewCards(homepage, fitnessPlan, weeklyWorkoutSection),
+    [fitnessPlan, homepage, weeklyWorkoutSection],
+  );
+
+  const mealOverviewCards = useMemo(
+    () => buildMealOverviewCards(homepage, mealPlan, mealDaysSection),
+    [homepage, mealDaysSection, mealPlan],
   );
 
   const tips = useMemo(
@@ -260,10 +319,33 @@ const HomepageListView = () => {
   const nutritionTileCount =
     Number(showWaterSection) + Number(showCalorieSection);
 
-  const onAddWater = (amount: number) => {
+  const onAddWater = async (amount: number) => {
     const nextTotal = Math.min(waterTotal + amount, waterGoal);
     setSelectedWaterStep(amount);
-    dispatch(updateTodayWaterIntake({total_ml: nextTotal}));
+
+    const result = await dispatch(updateTodayWaterIntake({total_ml: nextTotal}));
+
+    // Water feeds several homepage sections, so re-read the whole payload
+    // rather than patching one number locally.
+    if (updateTodayWaterIntake.fulfilled.match(result)) {
+      dispatch(getHomepage());
+    }
+  };
+
+  // The card is a shortcut to the plan, so it opens the Workout tab rather
+  // than jumping straight into an exercise.
+  const openMealPlan = (date?: string) => {
+    navigation.getParent?.()?.navigate('MealTab', {
+      screen: 'MealPlannerView',
+      params: {date},
+    });
+  };
+
+  const openFitnessPlan = (date?: string) => {
+    navigation.getParent?.()?.navigate('WorkoutTab', {
+      screen: 'FitnessPlanView',
+      params: {date},
+    });
   };
 
   const openTodayWorkout = () => {
@@ -407,8 +489,7 @@ const HomepageListView = () => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.quickActionCard}
-                disabled={!todayWorkout}
-                onPress={openTodayWorkout}>
+                onPress={() => openFitnessPlan(localIsoDate())}>
                 <Text style={styles.quickActionTitle}>Today's workout</Text>
                 <ChevronRight />
               </TouchableOpacity>
@@ -422,7 +503,7 @@ const HomepageListView = () => {
                           <View
                             style={[
                               styles.barFill,
-                              {height: `${Math.max(18, day.value * 100)}%`},
+                              {height: `${day.value * 100}%`},
                             ]}
                           />
                         </View>
@@ -435,7 +516,9 @@ const HomepageListView = () => {
                   <View style={styles.tag}>
                     <Text style={styles.tagText}>
                       {firstString(
+                        todayWorkout?.category_name,
                         todayWorkout?.category,
+                        todayProgress?.focus,
                         todayWorkout?.type,
                         activePlanAlias.includes('meal') ? 'Nutrition' : 'Workout',
                       )}
@@ -443,11 +526,14 @@ const HomepageListView = () => {
                   </View>
 
                   <Text style={styles.primaryCardTitle}>
-                    {firstString(
-                      todayWorkout?.title,
-                      todayWorkout?.name,
-                      todayWorkout?.focus,
-                      "Today's workout",
+                    {sentenceCase(
+                      firstString(
+                        todayWorkout?.exercise_name,
+                        todayWorkout?.title,
+                        todayWorkout?.name,
+                        todayProgress?.focus,
+                        "Today's workout",
+                      ),
                     )}
                   </Text>
 
@@ -477,8 +563,9 @@ const HomepageListView = () => {
           {overviewCards.length > 0 ? (
             <View style={styles.sectionBlock}>
               <SectionHeader
-                title={showWorkoutSection ? 'Weekly Workout Overview' : 'Weekly Meal Overview'}
+                title="Weekly Workout Overview"
                 action="See all"
+                onActionPress={() => openFitnessPlan(localIsoDate())}
               />
               <FlatList
                 data={overviewCards}
@@ -487,7 +574,36 @@ const HomepageListView = () => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.overviewList}
                 ItemSeparatorComponent={ListSeparator}
-                renderItem={({item}) => <OverviewCard item={item} />}
+                renderItem={({item}) => (
+                  <OverviewCard
+                    item={item}
+                    onPress={() => openFitnessPlan(item.date)}
+                  />
+                )}
+              />
+            </View>
+          ) : null}
+
+          {mealOverviewCards.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <SectionHeader
+                title="Weekly Meal Overview"
+                action="See all"
+                onActionPress={() => openMealPlan(localIsoDate())}
+              />
+              <FlatList
+                data={mealOverviewCards}
+                horizontal
+                keyExtractor={item => item.id}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.overviewList}
+                ItemSeparatorComponent={ListSeparator}
+                renderItem={({item}) => (
+                  <OverviewCard
+                    item={item}
+                    onPress={() => openMealPlan(item.date)}
+                  />
+                )}
               />
             </View>
           ) : null}
@@ -507,10 +623,25 @@ const HomepageListView = () => {
   );
 };
 
-const SectionHeader = ({title, action}: {title: string; action?: string}) => (
+const SectionHeader = ({
+  title,
+  action,
+  onActionPress,
+}: {
+  title: string;
+  action?: string;
+  onActionPress?: () => void;
+}) => (
   <View style={styles.sectionHeader}>
     {title ? <Text style={styles.sectionTitle}>{title}</Text> : <View />}
-    {action ? <Text style={styles.sectionAction}>{action}</Text> : null}
+    {action ? (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={onActionPress}
+        disabled={!onActionPress}>
+        <Text style={styles.sectionAction}>{action}</Text>
+      </TouchableOpacity>
+    ) : null}
   </View>
 );
 
@@ -559,58 +690,90 @@ const WaterCard = ({
   onSelect: (value: number) => void;
   onAddWater: (value: number) => void;
   containerStyle?: ViewStyle;
-}) => (
-  <View style={[styles.waterCard, containerStyle]}>
-    <Text style={styles.waterTitle}>Water Intake</Text>
-    <View style={styles.glassWrap}>
-      <View style={styles.glass}>
-        <View style={styles.glassInner}>
-          <View style={[styles.glassFill, {height: `${Math.min(100, Math.max(16, (total / Math.max(goal, 1)) * 100))}%`}]} />
-        </View>
+}) => {
+  const listRef = useRef<ScrollView>(null);
+  const pillLayouts = useRef<Record<number, {x: number; width: number}>>({});
+  const listWidth = useRef(0);
+
+  // Keep the picked amount in view, whether it was chosen with the arrows or
+  // tapped directly.
+  const revealStep = useCallback((step: number) => {
+    const pill = pillLayouts.current[step];
+
+    if (!pill || !listWidth.current) {
+      return;
+    }
+
+    const centered = pill.x + pill.width / 2 - listWidth.current / 2;
+
+    listRef.current?.scrollTo({x: Math.max(0, centered), animated: true});
+  }, []);
+
+  useEffect(() => {
+    revealStep(amount);
+  }, [amount, revealStep]);
+
+  return (
+    <View style={[styles.waterCard, containerStyle]}>
+      <Text style={styles.waterTitle}>Water Intake</Text>
+      <View style={styles.glassWrap}>
+        <WaterGlass level={waterFillLevel(amount)} />
       </View>
-    </View>
-    <View style={styles.waterControls}>
+      <View style={styles.waterControls}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.waterArrowButton}
+          onPress={() => cycleWaterStep(amount, -1, onSelect)}>
+          <Text style={styles.waterArrow}>{'<'}</Text>
+        </TouchableOpacity>
+        <ScrollView
+          ref={listRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          onLayout={event => {
+            listWidth.current = event.nativeEvent.layout.width;
+            revealStep(amount);
+          }}
+          contentContainerStyle={styles.waterAmountList}>
+          {WATER_STEPS.map(step => (
+            <TouchableOpacity
+              key={step}
+              activeOpacity={0.9}
+              onPress={() => onSelect(step)}
+              onLayout={event => {
+                const {x, width} = event.nativeEvent.layout;
+                pillLayouts.current[step] = {x, width};
+              }}
+              style={[styles.waterPill, amount === step && styles.waterPillActive]}>
+              <Text style={[styles.waterPillText, amount === step && styles.waterPillTextActive]}>
+                {formatWaterStep(step)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.waterArrowButton}
+          onPress={() => cycleWaterStep(amount, 1, onSelect)}>
+          <Text style={styles.waterArrow}>{'>'}</Text>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity
         activeOpacity={0.9}
-        style={styles.waterArrowButton}
-        onPress={() => cycleWaterStep(amount, -1, onSelect)}>
-        <Text style={styles.waterArrow}>{'<'}</Text>
-      </TouchableOpacity>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        contentContainerStyle={styles.waterAmountList}>
-        {WATER_STEPS.map(step => (
-          <TouchableOpacity
-            key={step}
-            activeOpacity={0.9}
-            onPress={() => onSelect(step)}
-            style={[styles.waterPill, amount === step && styles.waterPillActive]}>
-            <Text style={[styles.waterPillText, amount === step && styles.waterPillTextActive]}>
-              {formatWaterStep(step)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      <TouchableOpacity
-        activeOpacity={0.9}
-        style={styles.waterArrowButton}
-        onPress={() => cycleWaterStep(amount, 1, onSelect)}>
-        <Text style={styles.waterArrow}>{'>'}</Text>
+        style={styles.waterAddButton}
+        onPress={() => onAddWater(amount)}>
+        {loading ? (
+          <ActivityIndicator size="small" color={BACKGROUND} />
+        ) : (
+          <Text style={styles.waterAddButtonText}>
+            + Add {amount}mL ({total}/{goal}mL)
+          </Text>
+        )}
       </TouchableOpacity>
     </View>
-    <TouchableOpacity activeOpacity={0.9} style={styles.waterAddButton} onPress={() => onAddWater(amount)}>
-      {loading ? (
-        <ActivityIndicator size="small" color={BACKGROUND} />
-      ) : (
-        <Text style={styles.waterAddButtonText}>
-          + Add {amount}mL ({total}/{goal}mL)
-        </Text>
-      )}
-    </TouchableOpacity>
-  </View>
-);
+  );
+};
 
 const CalorieRing = ({
   consumed,
@@ -664,32 +827,59 @@ const CalorieRing = ({
   );
 };
 
-const OverviewCard = ({item}: {item: OverviewCardData}) => {
-  const isWorkout = item.kind === 'workout';
-  
-  if (isWorkout) {
-    return (
-      <View style={[styles.overviewCard, {backgroundColor: '#274318'}]}>
-        <View style={styles.overviewContent}>
-          <Text style={styles.overviewDay}>{item.title}</Text>
-          <ChevronRight />
-        </View>
+const OverviewCard = ({
+  item,
+  onPress,
+}: {
+  item: OverviewCardData;
+  onPress: () => void;
+}) => {
+  const caption = (
+    <View style={styles.overviewContent}>
+      <View style={styles.overviewCopy}>
+        <Text style={styles.overviewDay} numberOfLines={1}>
+          {item.title}
+        </Text>
+        {item.subtitle ? (
+          <View style={styles.overviewDurationRow}>
+            <ClockIcon small />
+            <Text style={styles.overviewDuration}>{item.subtitle}</Text>
+          </View>
+        ) : null}
       </View>
-    );
-  }
+      <ChevronRight />
+    </View>
+  );
 
   return (
-    <ImageBackground
-      source={item.image_url ? {uri: item.image_url} : FALLBACK_SUBSCRIPTION_IMAGE}
-      imageStyle={styles.overviewImage}
-      style={styles.overviewCard}>
-      <View style={styles.overviewOverlay} />
-      <View style={styles.overviewContent}>
-        <Text style={styles.overviewDay}>{item.title}</Text>
-        <ChevronRight />
-      </View>
-    </ImageBackground>
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
+      <ImageBackground
+        source={
+          item.image_url
+            ? {uri: item.image_url}
+            : overviewFallbackImage(item.id, item.kind)
+        }
+        imageStyle={styles.overviewImage}
+        style={styles.overviewCard}>
+        <View style={styles.overviewOverlay} />
+        {caption}
+      </ImageBackground>
+    </TouchableOpacity>
   );
+};
+
+// Derived from the id rather than random, so a card keeps the same photo
+// across re-renders instead of reshuffling on every state change.
+const overviewFallbackImage = (seed: string, kind: 'meal' | 'workout') => {
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  const slot = (hash % WORKOUT_FALLBACK_IMAGE_COUNT) + 1;
+
+  return {uri: kind === 'meal' ? mealFallbackUri(slot) : workoutFallbackUri(slot)};
 };
 
 const ChevronRight = ({dark = false}: {dark?: boolean}) => (
@@ -724,6 +914,7 @@ type OverviewCardData = {
   id: string;
   title: string;
   subtitle: string;
+  date?: string;
   image_url?: string;
   kind: 'meal' | 'workout';
 };
@@ -791,16 +982,12 @@ function buildUpgradePlans(upgradeOffersSection?: HomepageSection): PromoPlan[] 
   }));
 }
 
-const buildOverviewCards = (
-  actionPlan: string,
+const buildWorkoutOverviewCards = (
   homepage: HomepageData | null,
   fitnessPlan: FitnessPlan | null,
-  mealPlan: MealPlan | null,
   weeklyWorkoutSection?: HomepageSection,
-): OverviewCardData[] => {
-  const normalizedPlan = normalizePlanAlias(actionPlan);
-  
-  const workoutItems = [
+): OverviewCardData[] =>
+  [
     ...toArray(weeklyWorkoutSection?.days),
     ...toArray(homepage?.weekly_workout_overview?.days),
     ...toArray(homepage?.weekly_overview),
@@ -809,39 +996,73 @@ const buildOverviewCards = (
   ]
     .slice(0, 7)
     .map((item, index) => ({
-      id: `workout-${item?.id ?? index}`,
-      title: firstString(item?.day_name, item?.day, item?.title, dayLabels[index % dayLabels.length]),
-      subtitle: formatOptionalMetric('mins', item?.duration, item?.duration_minutes, item?.minutes),
+      id: `workout-${item?.id ?? item?.date ?? index}`,
+      date: isoDate(item?.date),
+      title: firstString(
+        item?.day_name,
+        item?.day,
+        item?.title,
+        weekdayLabel(item?.date, dayNames),
+        dayLabels[index % dayLabels.length],
+      ),
+      subtitle: firstString(
+        formatOptionalMetric(
+          'mins',
+          (item?.next_exercise as ApiItem | undefined)?.estimated_minutes,
+          item?.total_estimated_minutes,
+          item?.duration,
+          item?.duration_minutes,
+          item?.minutes,
+        ),
+        item?.focus,
+        toArray(item?.categories).join(', '),
+      ),
       image_url: firstString(item?.image_url, item?.thumbnail_url),
       kind: 'workout' as const,
     }));
 
-  const mealItems = [
+const buildMealOverviewCards = (
+  homepage: HomepageData | null,
+  mealPlan: MealPlan | null,
+  mealDaysSection?: HomepageSection,
+): OverviewCardData[] =>
+  [
+    ...toArray(mealDaysSection?.days),
     ...toArray(mealPlan?.days),
-    ...toArray(homepage?.weekly_progress), // From the JSON provided
+    ...toArray(homepage?.weekly_progress),
     ...toArray(mealPlan?.meals),
     ...toArray(homepage?.meals),
   ]
     .slice(0, 7)
-    .map((item, index) => ({
-      id: `meal-${item?.id ?? index}`,
-      title: firstString(item?.day_name, item?.day, item?.title, item?.name, dayLabels[index % dayLabels.length]),
-      subtitle: formatOptionalMetric('kcal', item?.target_kcal, item?.kcal, item?.calories),
-      image_url: firstString(item?.image_url, item?.thumbnail_url),
-      kind: 'meal' as const,
-    }));
+    .map((item, index) => {
+      const featured = item?.featured_meal as ApiItem | undefined;
 
-  if (['starter+meal', 'master+meal'].includes(normalizedPlan)) {
-    // If it's a combo plan, we show meals if we have them, otherwise workouts
-    return mealItems.length ? mealItems : workoutItems;
-  }
-
-  if (normalizedPlan === 'meal') {
-    return mealItems;
-  }
-
-  return workoutItems.length ? workoutItems : mealItems;
-};
+      return {
+        id: `meal-${item?.id ?? item?.date ?? index}`,
+        date: isoDate(item?.date),
+        title: firstString(
+          item?.day_label,
+          item?.day_name,
+          item?.day,
+          item?.title,
+          item?.name,
+          weekdayLabel(item?.date, dayNames),
+          dayLabels[index % dayLabels.length],
+        ),
+        subtitle: formatOptionalMetric(
+          'kcal',
+          item?.target_kcal,
+          item?.kcal,
+          item?.calories,
+        ),
+        image_url: firstString(
+          item?.image_url,
+          item?.thumbnail_url,
+          featured?.image_url,
+        ),
+        kind: 'meal' as const,
+      };
+    });
 
 const normalizePlanAlias = (planAlias: string) =>
   planAlias
@@ -891,21 +1112,78 @@ const buildWeeklyBars = (
     ...toArray(fitnessPlan?.days),
   ];
 
+  const completionByDate = new Map<string, number>();
+
+  for (const item of source) {
+    const date = isoDate(item?.date);
+
+    if (date && !completionByDate.has(date)) {
+      completionByDate.set(
+        date,
+        firstNumber(item?.completion_percentage, item?.progress, 0) / 100,
+      );
+    }
+  }
+
+  // daily_progress only covers days the plan schedules, so the chart is drawn
+  // from the section's week instead. Otherwise a five-day plan renders five
+  // bars and the rest of the week silently disappears.
+  const weekStart = isoDate(workoutProgressSection?.week?.start_date);
+
+  if (weekStart) {
+    return weekDates(weekStart).map(date => ({
+      label: weekdayLabel(date, dayLabels) ?? '',
+      value: clampNumber(completionByDate.get(date) ?? 0, 0, 1),
+    }));
+  }
+
   if (!source.length) return [];
 
-  // Filter out duplicates if multiple sources provided
   const uniqueDays = Array.from(new Set(source.map(d => d.date)))
     .map(date => source.find(d => d.date === date))
     .slice(0, 7);
 
   return uniqueDays.map((item, index) => ({
-    label: `Day ${item?.day_number ?? index + 1}`,
+    label:
+      weekdayLabel(item?.date, dayLabels) ??
+      `Day ${item?.day_number ?? index + 1}`,
     value: clampNumber(
-      (firstNumber(item?.completion_percentage, item?.progress, 0)) / 100,
-      0.18,
+      firstNumber(item?.completion_percentage, item?.progress, 0) / 100,
+      0,
       1,
     ),
   }));
+};
+
+// Seven consecutive YYYY-MM-DD strings starting at the given day.
+const weekDates = (start: string) => {
+  const [year, month, day] = start.split('-').map(Number);
+  const dates: string[] = [];
+
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = new Date(Date.UTC(year, month - 1, day + offset));
+    dates.push(date.toISOString().slice(0, 10));
+  }
+
+  return dates;
+};
+
+// Today's calendar date where the user is, not in UTC.
+const localIsoDate = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
+
+// Exercise names arrive lowercase ("seated chest press").
+const sentenceCase = (value: string) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+
+const isoDate = (value: unknown) => {
+  const match = /^\d{4}-\d{2}-\d{2}/.exec(String(value ?? ''));
+
+  return match ? match[0] : undefined;
 };
 
 const getHomepageSection = (homepage: HomepageData | null, type: string) =>
@@ -938,6 +1216,33 @@ const cycleWaterStep = (
       ? 0
       : (index + direction + WATER_STEPS.length) % WATER_STEPS.length;
   onChange(WATER_STEPS[nextIndex]);
+};
+
+// How full the glass looks for the amount currently picked: the smallest step
+// still shows a visible pour, the largest fills the glass.
+const waterFillLevel = (amount: number) => {
+  const min = WATER_STEPS[0];
+  const max = WATER_STEPS[WATER_STEPS.length - 1];
+  const span = Math.max(max - min, 1);
+  const ratio = (amount - min) / span;
+
+  return 0.3 + 0.7 * Math.min(Math.max(ratio, 0), 1);
+};
+
+// Dates arrive as plain YYYY-MM-DD, so read them as UTC. Letting Date parse
+// them locally shifts the day backwards west of Greenwich.
+const weekdayLabel = (value: unknown, names: string[]) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
+
+  if (!match) {
+    return undefined;
+  }
+
+  const date = new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+  );
+
+  return names[date.getUTCDay()];
 };
 
 const formatWaterStep = (value: number) =>
@@ -1050,15 +1355,15 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   subtitle: {
-    color: '#E7E7E7',
+    color: MUTED,
     fontSize: 14,
     fontFamily: 'Raleway-Regular',
     includeFontPadding: false,
   },
   avatar: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#4B4B4B',
     flexShrink: 0,
   },
@@ -1246,7 +1551,7 @@ const styles = StyleSheet.create({
   waterCard: {
     width: '47%',
     minWidth: 0,
-    backgroundColor: '#3A3A3A',
+    backgroundColor: SURFACE,
     borderRadius: 22,
     paddingHorizontal: 10,
     paddingVertical: 14,
@@ -1268,29 +1573,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-  },
-  glass: {
-    width: 34,
-    height: 68,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  glassInner: {
-    flex: 1,
-    margin: 2,
-    justifyContent: 'flex-end',
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  glassFill: {
-    width: '100%',
-    backgroundColor: '#6BCFFF',
   },
   waterControls: {
     flexDirection: 'row',
@@ -1367,22 +1649,22 @@ const styles = StyleSheet.create({
   },
   ringValue: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 17,
     fontFamily: 'Raleway-Bold',
     includeFontPadding: false,
     marginBottom: 4,
   },
   ringMeta: {
-    color: '#FFFFFF',
+    color: MUTED,
     fontSize: 10,
     fontFamily: 'Raleway-Medium',
     includeFontPadding: false,
   },
   quickActionCard: {
     backgroundColor: SURFACE,
-    borderRadius: 22,
-    paddingHorizontal: 28,
-    paddingVertical: 18,
+    borderRadius: 30,
+    paddingHorizontal: 26,
+    paddingVertical: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1390,14 +1672,14 @@ const styles = StyleSheet.create({
   },
   quickActionTitle: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: 'Raleway-Black',
     includeFontPadding: false,
     flexShrink: 1,
     paddingRight: 12,
   },
   progressCard: {
-    backgroundColor: '#3A3A3A',
+    backgroundColor: SURFACE,
     borderRadius: 28,
     paddingHorizontal: 24,
     paddingVertical: 24,
@@ -1419,9 +1701,9 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`,
   },
   barTrack: {
-    width: 18,
-    height: 142,
-    borderRadius: 12,
+    width: 15,
+    height: 132,
+    borderRadius: 8,
     backgroundColor: '#000000',
     justifyContent: 'flex-end',
     paddingBottom: 0,
@@ -1430,7 +1712,7 @@ const styles = StyleSheet.create({
   },
   barFill: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: ACCENT,
   },
   barLabel: {
@@ -1440,11 +1722,11 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   metaLabel: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: MUTED,
+    fontSize: 12,
     fontFamily: 'Raleway-Medium',
     includeFontPadding: false,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   tag: {
     alignSelf: 'flex-start',
@@ -1475,14 +1757,15 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   durationText: {
-    color: '#FFFFFF',
+    color: MUTED,
     fontSize: 13,
     fontFamily: 'Raleway-Medium',
     includeFontPadding: false,
   },
   primaryCta: {
     backgroundColor: ACCENT,
-    borderRadius: 28,
+    borderRadius: 32,
+    overflow: 'hidden',
     paddingLeft: 22,
     paddingRight: 10,
     paddingVertical: 10,
@@ -1503,7 +1786,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#313131',
+    backgroundColor: '#1B1B1B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1511,18 +1794,19 @@ const styles = StyleSheet.create({
     paddingRight: SCREEN_PADDING.right,
   },
   overviewCard: {
-    width: 220,
-    height: 300,
-    borderRadius: 24,
+    width: 215,
+    height: 285,
+    borderRadius: 20,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
   overviewImage: {
-    borderRadius: 24,
+    borderRadius: 20,
   },
   overviewOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderRadius: 20,
   },
   overviewContent: {
     flexDirection: 'row',
@@ -1537,7 +1821,7 @@ const styles = StyleSheet.create({
   },
   overviewDay: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 19,
     fontFamily: 'Raleway-Black',
     includeFontPadding: false,
     marginBottom: 6,
