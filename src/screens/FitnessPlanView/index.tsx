@@ -1,4 +1,5 @@
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useCallback, useMemo } from "react";
 import {
@@ -17,24 +18,18 @@ import { getFitnessPlan } from "../../slice/HomeSlice";
 import { useAppDispatch, useAppSelector } from "../../store";
 import type { FitnessPlanDay, WorkoutSection } from "../../types/plans";
 
-// Today where the user is. toISOString() would report the UTC day, which is
-// already tomorrow (or still yesterday) for much of the world.
 // Plan endpoints may send "2026-08-09" or "2026-08-09T00:00:00.000000Z";
 // compare on the calendar date alone.
 const isoDate = (value?: string) => value?.slice(0, 10);
-
-const localIsoDate = () => {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-};
 
 const ACCENT = "#8FFF19";
 
 const FitnessPlanView = () => {
   const navigation =
     useNavigation<NativeStackNavigationProp<WorkoutStackParamList>>();
+  const route =
+    useRoute<RouteProp<WorkoutStackParamList, "FitnessPlanView">>();
+  const requestedDate = route.params?.date;
   const dispatch = useAppDispatch();
   const { fitnessPlan, fitnessPlanLoading, fitnessPlanError } = useAppSelector(
     (state) => state.home,
@@ -63,10 +58,26 @@ const FitnessPlanView = () => {
     const weekStart = fitnessPlan?.week?.start_date ?? days[0]?.date;
     if (days.length === 0 || syncedWeekStart.current === weekStart) return;
 
-    const todayIndex = days.findIndex((day) => day.date === getLocalDateKey());
+    const todayIndex = days.findIndex(
+      (day) => isoDate(day.date) === getLocalDateKey(),
+    );
     setSelectedDayIndex(todayIndex >= 0 ? todayIndex : 0);
     syncedWeekStart.current = weekStart;
   }, [days, fitnessPlan?.week?.start_date]);
+
+  // A day opened from the homepage wins over the week sync above, and re-runs
+  // if this screen is already mounted when another day is picked.
+  React.useEffect(() => {
+    if (!requestedDate || days.length === 0) return;
+
+    const index = days.findIndex((day) => isoDate(day.date) === requestedDate);
+
+    if (index !== -1) {
+      setSelectedDayIndex(index);
+      syncedWeekStart.current =
+        fitnessPlan?.week?.start_date ?? days[0]?.date;
+    }
+  }, [days, fitnessPlan?.week?.start_date, requestedDate]);
 
   const formattedDate = useMemo(
     () => formatWorkoutDate(activeDay?.date),

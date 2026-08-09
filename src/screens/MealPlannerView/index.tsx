@@ -18,21 +18,21 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {MealStackParamList} from '../../navigation/MainStack';
 import type {DisplayMeal, MealPlanDay} from '../../types/plans';
 
-// Today where the user is. toISOString() would report the UTC day, which is
-// already tomorrow (or still yesterday) for much of the world.
+const ACCENT = '#8FFF19';
+const BACKGROUND = '#171717';
+
 // Plan endpoints may send "2026-08-09" or "2026-08-09T00:00:00.000000Z";
 // compare on the calendar date alone.
 const isoDate = (value?: string) => value?.slice(0, 10);
 
+// Today where the user is. toISOString() would report the UTC day, which is
+// already tomorrow (or still yesterday) for much of the world.
 const localIsoDate = () => {
   const now = new Date();
   const pad = (value: number) => String(value).padStart(2, '0');
 
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
-
-const ACCENT = '#8FFF19';
-const BACKGROUND = '#171717';
 
 const MealPlannerView = () => {
   const navigation = useNavigation<NativeStackNavigationProp<MealStackParamList>>();
@@ -146,6 +146,15 @@ const Header = ({title, onBack}: {title: string; onBack: () => void}) => (
   </View>
 );
 
+const getWeekdayLabel = (date?: string) => {
+  // Noon avoids the date shifting a day either side of UTC.
+  const parsed = date ? new Date(`${date}T12:00:00`) : null;
+
+  return parsed
+    ? parsed.toLocaleDateString('en-US', {weekday: 'short'})
+    : 'Day';
+};
+
 const WeekStrip = ({days, selectedIndex, onSelect}: {days: MealPlanDay[]; selectedIndex: number; onSelect: (i: number) => void}) => {
   const displayDays = useMemo(() => {
     return days;
@@ -155,7 +164,9 @@ const WeekStrip = ({days, selectedIndex, onSelect}: {days: MealPlanDay[]; select
     <View style={styles.weekStrip}>
       {displayDays.map((item, index) => {
         const isActive = index === selectedIndex;
-        const dayLabel = (item.day_name || 'Day').substring(0, 3);
+        const dayLabel =
+          (item.day_label || item.day_name)?.slice(0, 3) ||
+          getWeekdayLabel(item.date);
         const dateNum = item.date ? item.date.split('-').pop() : '00';
         
         return (

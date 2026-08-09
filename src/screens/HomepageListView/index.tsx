@@ -1122,18 +1122,18 @@ function buildUpgradePlans(
   }));
 }
 
-const buildWorkoutOverviewCards = (
+export const buildWorkoutOverviewCards = (
   homepage: HomepageData | null,
   fitnessPlan: FitnessPlan | null,
   weeklyWorkoutSection?: HomepageSection,
 ): OverviewCardData[] =>
-  [
-    ...toArray(weeklyWorkoutSection?.days),
-    ...toArray(homepage?.weekly_workout_overview?.days),
-    ...toArray(homepage?.weekly_overview),
-    ...toArray(homepage?.workouts),
-    ...toArray(fitnessPlan?.days),
-  ]
+  firstNonEmpty(
+    toArray(weeklyWorkoutSection?.days),
+    toArray(homepage?.weekly_workout_overview?.days),
+    toArray(homepage?.weekly_overview),
+    toArray(homepage?.workouts),
+    toArray(fitnessPlan?.days),
+  )
     .slice(0, 7)
     .map((item, index) => ({
       id: `workout-${item?.id ?? item?.date ?? index}`,
@@ -1153,6 +1153,7 @@ const buildWorkoutOverviewCards = (
           item?.duration,
           item?.duration_minutes,
           item?.minutes,
+          item?.estimated_minutes,
         ),
         item?.focus,
         toArray(item?.categories).join(", "),
@@ -1161,18 +1162,18 @@ const buildWorkoutOverviewCards = (
       kind: "workout" as const,
     }));
 
-const buildMealOverviewCards = (
+export const buildMealOverviewCards = (
   homepage: HomepageData | null,
   mealPlan: MealPlan | null,
   mealDaysSection?: HomepageSection,
 ): OverviewCardData[] =>
-  [
-    ...toArray(mealDaysSection?.days),
-    ...toArray(mealPlan?.days),
-    ...toArray(homepage?.weekly_progress),
-    ...toArray(mealPlan?.meals),
-    ...toArray(homepage?.meals),
-  ]
+  firstNonEmpty(
+    toArray(mealDaysSection?.days),
+    toArray(mealPlan?.days),
+    toArray(homepage?.weekly_progress),
+    toArray(mealPlan?.meals),
+    toArray(homepage?.meals),
+  )
     .slice(0, 7)
     .map((item, index) => {
       const featured = item?.featured_meal as ApiItem | undefined;
@@ -1189,12 +1190,9 @@ const buildMealOverviewCards = (
           weekdayLabel(item?.date, dayNames),
           dayLabels[index % dayLabels.length],
         ),
-        subtitle: formatOptionalMetric(
-          "kcal",
-          item?.target_kcal,
-          item?.kcal,
-          item?.calories,
-        ),
+        // Meal cards show the day alone. An empty subtitle also drops the
+        // clock row, which is gated on it.
+        subtitle: "",
         image_url: firstString(
           item?.image_url,
           item?.thumbnail_url,
@@ -1400,6 +1398,12 @@ const toWorkoutSection = (value?: ApiItem) => ({
   ),
   exercises: value?.exercises ?? [],
 });
+
+// Sources are alternatives, not one pool. Concatenating them let a short
+// section get topped up from a fallback whose rows lack the fields the card
+// needs, so some cards rendered without their duration.
+const firstNonEmpty = (...lists: ApiItem[][]): ApiItem[] =>
+  lists.find((list) => list.length > 0) ?? [];
 
 const toArray = (value: unknown): ApiItem[] =>
   Array.isArray(value)
@@ -1956,6 +1960,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   overviewContent: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
     padding: 20,
     paddingBottom: 25,
   },

@@ -94,6 +94,7 @@ export interface MealEntry {
 export interface MealPlanDay {
   date?: string;
   day_name?: string;
+  day_label?: string;
   meals?: MealEntry[];
 }
 
