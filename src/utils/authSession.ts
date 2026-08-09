@@ -15,6 +15,21 @@ export interface PersistedAuthSession {
   isPlan?: boolean;
 }
 
+export const mergeAuthResponseWithProfile = (
+  authResponse: AuthResponse | null,
+  profileResponse: AuthResponse,
+  session: Pick<PersistedAuthSession, 'token' | 'action_plan'>,
+): AuthResponse => ({
+  ...(authResponse ?? {}),
+  ...profileResponse,
+  data: {
+    ...(authResponse?.data ?? {}),
+    ...(profileResponse.data ?? {}),
+    token: session.token,
+    action_plan: session.action_plan,
+  },
+});
+
 export const saveAuthSession = async (session: PersistedAuthSession) => {
   await SecureStore.setItemAsync(AUTH_SESSION_KEY, JSON.stringify(session), {
     keychainAccessible: SecureStore.WHEN_UNLOCKED,

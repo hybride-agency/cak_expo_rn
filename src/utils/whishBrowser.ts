@@ -1,16 +1,22 @@
 import {AppState, Platform} from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
+const IOS_PAYMENT_RETURN_URL = 'cak://payment';
+
 /**
  * Opens the Whish checkout and resolves only after the checkout browser is no
  * longer in front of the app.
  *
- * Expo's openBrowserAsync already waits for Safari to close on iOS, but on
- * Android it resolves with `opened` as soon as the Custom Tab launches. Waiting
- * for the app to leave and become active again gives both platforms the same
- * contract and prevents payment polling from starting behind the browser.
+ * iOS uses an authentication session so the OS can recognize the `cak` return
+ * scheme, close the Safari sheet, and hand control back to the app. Android's
+ * browser resolves with `opened` as soon as the Custom Tab launches, so wait
+ * for the app to leave and become active again before continuing.
  */
 export const openWhishBrowserAsync = async (url: string) => {
+  if (Platform.OS === 'ios') {
+    return WebBrowser.openAuthSessionAsync(url, IOS_PAYMENT_RETURN_URL);
+  }
+
   if (Platform.OS !== 'android') {
     return WebBrowser.openBrowserAsync(url);
   }

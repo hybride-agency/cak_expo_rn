@@ -16,6 +16,7 @@ export interface PickerItem {
   title?: string;
   image_url?: string | null;
   order?: number;
+  is_exclusive?: boolean;
 }
 
 interface DropDownPickerCmpProps {
@@ -30,6 +31,7 @@ const DropDownPickerCmp = ({
   const [searchValue, setSearchValue] = useState<string>('');
   const [selectedItems, setSelectedItems] = useState<PickerItem[]>([]);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const onSelectionChangeRef = useRef(onSelectionChange);
 
   const [visibleHeight, setVisibleHeight] = useState(1);
   const [contentHeight, setContentHeight] = useState(1);
@@ -61,6 +63,10 @@ const DropDownPickerCmp = ({
     return selectedItems.some(selected => selected.id === item.id);
   };
 
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
+
   // Call callback whenever the user actually changes the selection. Skips
   // the initial mount (selectedItems starts at []), which previously fired
   // onSelectionChange([]) immediately and seeded a false "answered with
@@ -72,11 +78,9 @@ const DropDownPickerCmp = ({
       return;
     }
 
-    if (onSelectionChange) {
-      const selectedIds = selectedItems.map(item => String(item.id));
-      onSelectionChange(selectedIds);
-    }
-  }, [onSelectionChange, selectedItems]);
+    const selectedIds = selectedItems.map(item => String(item.id));
+    onSelectionChangeRef.current?.(selectedIds);
+  }, [selectedItems]);
 
   // thumb size = (visibleHeight² / contentHeight)
   const thumbHeight =
@@ -192,7 +196,7 @@ const DropDownPickerCmp = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -219,6 +223,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   flatListContainer: {
+    flex: 1,
     width: '100%',
     backgroundColor: '#2A2A2A',
     borderRadius: 15,

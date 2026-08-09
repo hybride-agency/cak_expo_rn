@@ -37,6 +37,7 @@ import {
 } from '../../slice/QuestionSlice';
 import HeightPickerCmp from '../../components/HeightPickerCmp';
 import { SubmitAnswer, SubmitAnswerResponse } from '../../../global';
+import {toggleMultiSelectAnswer} from '../../utils/quizSelections';
 
 type Gender = 'm' | 'f';
 
@@ -45,6 +46,7 @@ type QuizAnswer = {
   title: string;
   image_url?: string | null;
   order?: number;
+  is_exclusive?: boolean;
 };
 
 type QuizQuestion = {
@@ -557,19 +559,11 @@ const QuestionListView = () => {
                     const currentAnswerValues =
                       currentAnswerForQuestion?.answer_values || [];
 
-                    // Toggle the selected item
-                    const itemId = selectedItem.id.toString();
-                    let newAnswerValues: string[];
-
-                    if (currentAnswerValues.includes(itemId)) {
-                      // Remove item if already selected
-                      newAnswerValues = currentAnswerValues.filter(
-                        id => id !== itemId,
-                      );
-                    } else {
-                      // Add item if not selected
-                      newAnswerValues = [...currentAnswerValues, itemId];
-                    }
+                    const newAnswerValues = toggleMultiSelectAnswer(
+                      currentAnswerValues,
+                      selectedItem,
+                      currentQuestion.answers ?? [],
+                    );
 
                     updateAnswer(currentQuestion?.id, newAnswerValues);
 

@@ -1,3 +1,8 @@
+export interface WorkoutInstructionStep {
+  title: string;
+  description: string;
+}
+
 export interface WorkoutExercise {
   id: number;
   exercise_name?: string;
@@ -8,6 +13,7 @@ export interface WorkoutExercise {
   is_completed?: boolean;
   completed_at?: string | null;
   instruction_text?: string;
+  instruction_steps?: WorkoutInstructionStep[];
   image_url?: string;
   video_url?: string | null;
   estimated_minutes?: number | string;

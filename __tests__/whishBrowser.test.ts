@@ -8,10 +8,12 @@ let mockAppStateListener:
   | undefined;
 
 jest.mock('expo-web-browser', () => ({
+  openAuthSessionAsync: jest.fn(),
   openBrowserAsync: jest.fn(),
   WebBrowserResultType: {CANCEL: 'cancel', OPENED: 'opened'},
 }));
 
+const mockOpenAuthSessionAsync = jest.mocked(WebBrowser.openAuthSessionAsync);
 const mockOpenBrowserAsync = jest.mocked(WebBrowser.openBrowserAsync);
 
 describe('openWhishBrowserAsync', () => {
@@ -78,15 +80,24 @@ describe('openWhishBrowserAsync', () => {
     await expect(resultPromise).resolves.toEqual({type: 'cancel'});
   });
 
-  it('uses the native waiting behavior on iOS', async () => {
+  it('uses an iOS auth session registered for the CAK payment return URL', async () => {
     Object.defineProperty(Platform, 'OS', {value: 'ios', configurable: true});
-    mockOpenBrowserAsync.mockResolvedValue({
-      type: WebBrowser.WebBrowserResultType.CANCEL,
+    mockOpenAuthSessionAsync.mockResolvedValue({
+      type: 'success',
+      url: 'cak://payment/success?payment_id=42',
     });
 
     await expect(
       openWhishBrowserAsync('https://whish.test/checkout'),
-    ).resolves.toEqual({type: 'cancel'});
+    ).resolves.toEqual({
+      type: 'success',
+      url: 'cak://payment/success?payment_id=42',
+    });
+    expect(mockOpenAuthSessionAsync).toHaveBeenCalledWith(
+      'https://whish.test/checkout',
+      'cak://payment',
+    );
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
     expect(mockAppStateListener).toBeUndefined();
   });
 });

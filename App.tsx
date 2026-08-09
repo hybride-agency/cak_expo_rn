@@ -29,6 +29,7 @@ import { setIsPlan, setIsQuestion, setIsWelcome } from './src/slice/WelcomeSlice
 import { resumePendingWhishPayment } from './src/utils/resumePendingWhishPayment';
 import { registerForPushNotifications } from './src/utils/pushNotifications';
 import { isWhishPaymentRedirect } from './src/utils/whishRedirect';
+import {refreshAuthenticatedSession} from './src/utils/completeAuthSession';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -41,6 +42,8 @@ function AppContent() {
   const isPlan = useSelector((state: RootState) => state.welcome.isPlan);
   const isLoggedIn = useSelector((state: RootState) => state.login.isLoggedIn);
   const loginUser = useSelector((state: RootState) => state.login.user);
+  const profile = useSelector((state: RootState) => state.home.profile);
+  const authToken = useSelector((state: RootState) => state.signUp.token);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   useEffect(() => {
@@ -67,6 +70,7 @@ function AppContent() {
           dispatch(setIsQuestion(Boolean(savedSession.isQuestion)));
           dispatch(setIsPlan(Boolean(savedSession.isPlan)));
 
+          await refreshAuthenticatedSession(dispatch, savedSession);
           void resumePendingWhishPayment(dispatch);
         }
       } finally {
@@ -139,10 +143,16 @@ function AppContent() {
     );
   }
 
+  const userHasActivePlan = Boolean(
+    authToken && (hasActivePlan(loginUser) || hasActivePlan(profile)),
+  );
+
   return (
     <NavigationContainer>
       {isQuestion ? (
         <QuestionNavigator />
+      ) : userHasActivePlan ? (
+        <MainNavigator />
       ) : isPlan ? (
         <PlanNavigator />
       ) : isLoggedIn && !hasActivePlan(loginUser) ? (

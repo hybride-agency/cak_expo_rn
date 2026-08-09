@@ -22,6 +22,7 @@ import type {
   MainStackParamList,
   WorkoutFlowParamList,
 } from '../../navigation/MainStack';
+import {buildExerciseInstructionSteps} from '../../utils/exerciseInstructions';
 
 const ACCENT = '#68FE00';
 const BACKGROUND = '#171717';
@@ -59,10 +60,10 @@ const ExercisePlayerView = () => {
   const isBuffering = showVideo && playerState.status === 'loading';
   const hasPlaybackError = showVideo && playerState.status === 'error';
 
-  const instructions =
-    exercise.instruction_text ||
-    'Instructions are not available for this exercise.';
-  const steps = useMemo(() => parseInstructionSteps(instructions), [instructions]);
+  const steps = useMemo(
+    () => buildExerciseInstructionSteps(exercise),
+    [exercise],
+  );
 
   const onFinish = async () => {
     let completedExercise = {...exercise, is_completed: true};
@@ -217,21 +218,6 @@ const ExercisePlayerView = () => {
       </View>
     </SafeAreaView>
   );
-};
-
-const parseInstructionSteps = (instructions: string) => {
-  const stepTitles = ['Setup', 'Movement', 'Form & safety'];
-  const blocks = instructions
-    .split(/\n\s*\n/)
-    .map(block => block.trim())
-    .filter(Boolean);
-
-  return (blocks.length > 0 ? blocks : [instructions]).map((block, index) => {
-    return {
-      title: stepTitles[index] || `Step ${index + 1}`,
-      description: block.replace(/^\d+[.)]\s*/, ''),
-    };
-  });
 };
 
 const getVideoSource = (uri?: string | null): VideoSource => {
