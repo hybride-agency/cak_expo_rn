@@ -18,6 +18,7 @@ import {
   MembershipView,
   NotificationsView,
   PaymentHistoryView,
+  PlanView,
   PersonalDataView,
   PrivacyPolicyView,
   ProfileView,
@@ -51,6 +52,7 @@ export type WorkoutFlowParamList = {
 
 export type HomeStackParamList = {
   HomepageListView: undefined;
+  UpgradePlanView: { planId: number; mode: "upgrade" };
 } & WorkoutFlowParamList;
 
 export type MealStackParamList = {
@@ -132,6 +134,11 @@ const HomeNavigator = () => (
     <HomeStack.Screen
       name="HomepageListView"
       component={HomepageListView}
+      options={screenOptions}
+    />
+    <HomeStack.Screen
+      name="UpgradePlanView"
+      component={PlanView}
       options={screenOptions}
     />
     <HomeStack.Screen
@@ -337,6 +344,7 @@ const shouldHideTabBar = (route: RouteProp<MainTabParamList>) => {
   if (!focusedRouteName) return false;
   return (
     WORKOUT_FLOW_ROUTES.has(focusedRouteName) ||
+    focusedRouteName === "UpgradePlanView" ||
     focusedRouteName === "MealDetailsView"
   );
 };

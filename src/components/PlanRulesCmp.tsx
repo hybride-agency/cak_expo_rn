@@ -41,10 +41,10 @@ const PlanRulesCmp = ({ rules }: PlanRulesCmpProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     gap: 6,
   },
   ruleText: {
+    flex: 1,
     fontSize: 12,
     color: '#fff',
     fontFamily: 'Raleway-Light',
@@ -52,10 +52,10 @@ const styles = StyleSheet.create({
   },
   ruleContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 6,
     width: '100%',
-    height: 15,
+    minHeight: 15,
   },
 });
 

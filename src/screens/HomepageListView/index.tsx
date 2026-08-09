@@ -387,6 +387,16 @@ const HomepageListView = () => {
     });
   };
 
+  const openUpgradePlan = (plan: PromoPlan) => {
+    const planId = Number(plan.id);
+
+    if (!Number.isInteger(planId) || planId <= 0) {
+      return;
+    }
+
+    navigation.navigate("UpgradePlanView", { planId, mode: "upgrade" });
+  };
+
   const openTodayWorkout = () => {
     if (!todayWorkout) return;
 
@@ -508,7 +518,11 @@ const HomepageListView = () => {
                 contentContainerStyle={styles.promoList}
                 ItemSeparatorComponent={ListSeparator}
                 renderItem={({ item }) => (
-                  <SubscriptionCard item={item} compact />
+                  <SubscriptionCard
+                    item={item}
+                    compact
+                    onPress={() => openUpgradePlan(item)}
+                  />
                 )}
               />
             </View>
@@ -717,9 +731,11 @@ const UPGRADE_IMAGE_URL =
 const SubscriptionCard = ({
   item,
   compact = false,
+  onPress,
 }: {
   item: PromoPlan;
   compact?: boolean;
+  onPress?: () => void;
 }) => (
   <ImageBackground
     source={
@@ -765,6 +781,8 @@ const SubscriptionCard = ({
         </View>
         <TouchableOpacity
           activeOpacity={0.9}
+          disabled={!onPress}
+          onPress={onPress}
           style={[styles.getPlanButton, compact && styles.upgradeGetPlanButton]}
         >
           <Text

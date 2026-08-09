@@ -23,6 +23,7 @@ export interface WhishPayment {
   plan_name: string | null;
   plan_pricing_id: number | null;
   user_plan_id: number | null;
+  source_user_plan_id?: number | null;
   amount: string | number;
   currency: string;
   collect_url: string | null;
@@ -39,7 +40,7 @@ export interface WhishPayment {
 
 export interface PendingWhishCheckout {
   payment_id: number;
-  purpose: 'purchase' | 'renewal';
+  purpose: 'purchase' | 'renewal' | 'upgrade';
   idempotency_key: string;
   started_at: string;
 }

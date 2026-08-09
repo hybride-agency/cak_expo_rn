@@ -6,7 +6,7 @@ import {
   fetchWhishPayment,
   setCurrentPayment,
 } from '../slice/PaymentSlice';
-import {getCurrentPlan, getProfile} from '../slice/HomeSlice';
+import {getCurrentPlan, getHomepage, getProfile} from '../slice/HomeSlice';
 import {getSubscriptionHistory} from '../slice/SubscriptionHistorySlice';
 import {generateUuid} from '../utils/uuid';
 import {clearPendingPayment, savePendingPayment} from '../utils/pendingPayment';
@@ -30,6 +30,7 @@ const POLL_INTERVAL_MS = 2500;
 // terminal result is shown normally; a still-pending checkout is treated as
 // closed so the user is never left staring at a confirmation loader.
 const QUICK_POLL_ATTEMPTS = 1;
+type CheckoutPurpose = 'purchase' | 'renewal' | 'upgrade';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -43,6 +44,7 @@ export const useWhishCheckout = () => {
     await Promise.all([
       dispatch(getProfile()),
       dispatch(getCurrentPlan()),
+      dispatch(getHomepage()),
       dispatch(getSubscriptionHistory()),
     ]);
   }, [dispatch]);
@@ -94,7 +96,7 @@ export const useWhishCheckout = () => {
   );
 
   const afterCheckoutCreated = useCallback(
-    async (purpose: 'purchase' | 'renewal', idempotencyKey: string, createdPayment: WhishPayment) => {
+    async (purpose: CheckoutPurpose, idempotencyKey: string, createdPayment: WhishPayment) => {
       setPayment(createdPayment);
 
       if (!createdPayment.collect_url) {
@@ -129,7 +131,7 @@ export const useWhishCheckout = () => {
   // so poll the existing payment id for its real status instead.
   const recoverAmbiguousFailure = useCallback(
     async (
-      purpose: 'purchase' | 'renewal',
+      purpose: CheckoutPurpose,
       idempotencyKey: string,
       paymentId: number,
       fallbackMessage: string,
@@ -182,7 +184,11 @@ export const useWhishCheckout = () => {
         return;
       }
 
-      await afterCheckoutCreated('purchase', idempotencyKey, action.payload);
+      await afterCheckoutCreated(
+        action.payload.purpose === 'upgrade' ? 'upgrade' : 'purchase',
+        idempotencyKey,
+        action.payload,
+      );
     },
     [afterCheckoutCreated, dispatch, recoverAmbiguousFailure],
   );

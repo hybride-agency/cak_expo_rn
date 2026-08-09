@@ -4,7 +4,7 @@ import { PlanListView, PlanView, SuccessView } from '../screens';
 
 export type PlanStackParamList = {
   PlanList: undefined;
-  PlanView: undefined;
+  PlanView: {planId?: number; mode?: 'purchase' | 'upgrade'} | undefined;
   SuccessView: undefined;
 };
 

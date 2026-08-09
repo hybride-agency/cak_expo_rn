@@ -1,6 +1,6 @@
 import type {AppDispatch} from '../store';
 import {fetchWhishPayment} from '../slice/PaymentSlice';
-import {getCurrentPlan, getProfile} from '../slice/HomeSlice';
+import {getCurrentPlan, getHomepage, getProfile} from '../slice/HomeSlice';
 import {getSubscriptionHistory} from '../slice/SubscriptionHistorySlice';
 import {clearPendingPayment, loadPendingPayment} from './pendingPayment';
 import {WHISH_TERMINAL_STATUSES} from '../types/payments';
@@ -42,6 +42,7 @@ export const resumePendingWhishPayment = async (dispatch: AppDispatch) => {
     await Promise.all([
       dispatch(getProfile()),
       dispatch(getCurrentPlan()),
+      dispatch(getHomepage()),
       dispatch(getSubscriptionHistory()),
     ]);
   }

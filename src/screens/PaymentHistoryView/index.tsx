@@ -139,7 +139,13 @@ const formatPlanName = (value?: string | null) => {
 };
 
 const formatPurpose = (purpose: string) =>
-  purpose === 'renewal' ? 'Renewal' : purpose === 'purchase' ? 'Purchase' : purpose;
+  purpose === 'renewal'
+    ? 'Renewal'
+    : purpose === 'upgrade'
+      ? 'Upgrade'
+      : purpose === 'purchase'
+        ? 'Purchase'
+        : purpose;
 
 const formatAmount = (item: WhishPayment) => {
   const amount = Number(item.amount);
