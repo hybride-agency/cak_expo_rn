@@ -5,6 +5,7 @@ import type {
   HomepageData,
   MobilePlansData,
   ProfileData,
+  ProfileUpdatePayload,
 } from "../types/home";
 import type { FitnessPlan, MealEntry, MealPlan } from "../types/plans";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -53,19 +54,6 @@ export const getCurrentPlan = createAsyncThunk(
   },
 );
 
-export const getCurrentPlan = createAsyncThunk(
-  "home/getCurrentPlan",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get("/auth/current-plan");
-      return response.data;
-    } catch (error: unknown) {
-      return rejectWithValue(
-        getApiErrorMessage(error, "Failed to load current plan"),
-      );
-    }
-  },
-);
 
 export const getMobilePlans = createAsyncThunk(
   "home/getMobilePlans",

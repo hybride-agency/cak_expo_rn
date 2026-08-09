@@ -480,8 +480,6 @@ const styles = StyleSheet.create({
   saveContainer: { marginTop: 28 },
 });
 
-export default PersonalDataView;
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const validate = (edits: ProfileUpdatePayload) => {
