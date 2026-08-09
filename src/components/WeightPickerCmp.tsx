@@ -54,11 +54,14 @@ const WeightPickerCmp = ({
     }
   }, [initialWeight, weights]);
 
+  const onSelectWeightRef = useRef(onSelectWeight);
+  onSelectWeightRef.current = onSelectWeight;
+
+  // Only re-fires when the selected value changes, not when the parent
+  // passes a new (often unmemoized) callback identity on every render.
   useEffect(() => {
-    if (onSelectWeight) {
-      onSelectWeight(selectedWeight);
-    }
-  }, [onSelectWeight, selectedWeight]);
+    onSelectWeightRef.current?.(selectedWeight);
+  }, [selectedWeight]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollX = event.nativeEvent.contentOffset.x;

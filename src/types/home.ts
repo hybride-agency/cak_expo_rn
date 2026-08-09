@@ -1,4 +1,4 @@
-import type {UserProfile} from './auth';
+import type {HomepageAccess, UserProfile} from './auth';
 import type {WorkoutExercise} from './plans';
 
 export interface ApiItem {
@@ -97,13 +97,41 @@ export interface ProfileData extends UserProfile {
   subscription?: SubscriptionData;
   current_subscription?: SubscriptionData;
   active_plan?: PlanData;
+  homepage_access?: HomepageAccess;
   available_plans?: ApiItem[];
   section?: ApiItem;
   personal_data?: ApiItem;
   fitness_profile?: ApiItem;
 }
 
+export interface ProfileUpdatePayload {
+  name?: string;
+  email?: string;
+  phone_number?: string | null;
+  height_cm?: number;
+  weight_kg?: number;
+  age?: number;
+  gender?: string;
+}
+
+export type EditableField = keyof ProfileUpdatePayload;
+
 export interface MobilePlansData {
   plans?: ApiItem[];
   section?: ApiItem;
+}
+
+export interface CurrentPlanData {
+  user_plan_id: number;
+  plan_id: number;
+  image_url: string | null;
+  name: string;
+  description: string | null;
+  features: string | null;
+  terms: string | null;
+  status: string;
+  amount_paid: number | string;
+  currency: string;
+  start_date: string | null;
+  end_date: string | null;
 }

@@ -4,9 +4,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   FlatList,
 } from 'react-native';
+import {Image} from 'expo-image';
 import React, {
   useCallback,
   useEffect,
@@ -220,19 +220,34 @@ const QuestionListView = () => {
     Partial<Record<Gender, Promise<QuizData | null>>>
   >({});
   const prefetchImages = useCallback((questions: QuizQuestion[]) => {
-    const prefetchQuestionImage = (questionItem?: QuizQuestion | null) => {
+    const urls = new Set<string>();
+
+    const collectQuestionImages = (questionItem?: QuizQuestion | null) => {
       if (!questionItem) {
         return;
       }
 
       if (questionItem.image_url) {
-        Image.prefetch(questionItem.image_url);
+        urls.add(questionItem.image_url);
       }
 
-      prefetchQuestionImage(questionItem.follow_up_question);
+      questionItem.answers?.forEach(answerItem => {
+        if (answerItem.image_url) {
+          urls.add(answerItem.image_url);
+        }
+      });
+
+      collectQuestionImages(questionItem.follow_up_question);
     };
 
-    questions.forEach(prefetchQuestionImage);
+    questions.forEach(collectQuestionImages);
+
+    if (urls.size) {
+      // memory-disk keeps the decoded bitmap warm, not just the file on
+      // disk, so the <Image> below paints instantly with no pop-in/flash
+      // when its screen becomes current.
+      Image.prefetch(Array.from(urls), 'memory-disk');
+    }
   }, []);
 
   const fetchQuizForGender = useCallback(
@@ -357,6 +372,22 @@ const QuestionListView = () => {
       (currentQuestion.alias === null ||
         (currentQuestion.alias && currentQuestion.alias.includes('-1')))
     );
+  };
+
+  // Dropdown questions are required server-side (a submission with an empty
+  // answer_values for one is rejected), and unlike radio/multi-select there
+  // is no "none of the above" option, so block Next until something's picked.
+  const isNextDisabled = () => {
+    const currentQuestion = getCurrentQuestion();
+
+    if (currentQuestion?.type !== 'dropdown') {
+      return false;
+    }
+
+    const currentAnswer = answer.find(
+      ans => ans.question_id === currentQuestion.id,
+    );
+    return !currentAnswer || currentAnswer.answer_values.length === 0;
   };
 
   // Function to handle next question logic
@@ -726,6 +757,8 @@ const QuestionListView = () => {
               <Image
                 source={{ uri: backgroundImageUrl }}
                 style={styles.image}
+                cachePolicy="memory-disk"
+                transition={0}
               />
             </View>
           )}
@@ -818,6 +851,7 @@ const QuestionListView = () => {
                 <View style={styles.buttonContainer}>
                   <SecondaryButtonCmp
                     text="Next"
+                    disabled={isNextDisabled()}
                     onPress={() => {
                       goToNextQuestion();
                     }}

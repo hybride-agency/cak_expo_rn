@@ -9,7 +9,11 @@ export interface UserProfile {
   age?: number | string;
   height?: number | string;
   weight?: number | string;
+  height_cm?: number | string;
+  weight_kg?: number | string;
   gender?: string;
+  role?: string;
+  test_completed?: boolean;
   has_active_plan?: boolean;
 }
 
@@ -25,6 +29,7 @@ export interface PlanSummary {
 export interface HomepageAccess {
   can_access_homepage?: boolean;
   blocking_codes?: string[];
+  active_plan_alias?: string;
 }
 
 export interface AuthResponseData {

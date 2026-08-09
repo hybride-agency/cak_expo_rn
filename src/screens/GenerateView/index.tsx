@@ -6,18 +6,23 @@ import {
   ImageBackground,
 } from 'react-native';
 import React, {useCallback, useEffect, useRef} from 'react';
+import {useSelector} from 'react-redux';
 import Loading_Logo_SVG from '../../../assets/SVG/Loading_Logo_SVG';
 import {
   setIsPlan,
   setIsQuestion,
   setIsWelcome,
 } from '../../slice/WelcomeSlice';
-import {useAppDispatch} from '../../store';
+import {RootState, useAppDispatch} from '../../store';
 import { getPlan } from '../../slice/PlanSlice';
+import { saveAuthSession } from '../../utils/authSession';
 
 const GenerateView = () => {
   const dispatch = useAppDispatch();
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const loginUser = useSelector((state: RootState) => state.login.user);
+  const token = useSelector((state: RootState) => state.signUp.token);
+  const actionPlan = useSelector((state: RootState) => state.signUp.action_plan);
 
   useEffect(() => {
     const startRotation = () => {
@@ -41,11 +46,20 @@ const GenerateView = () => {
         dispatch(setIsPlan(true));
         dispatch(setIsQuestion(false));
         dispatch(setIsWelcome(false));
+        void saveAuthSession({
+          token,
+          action_plan: actionPlan,
+          loginUser,
+          isLoggedIn: true,
+          isWelcome: false,
+          isQuestion: false,
+          isPlan: true,
+        });
       }
     } catch (error) {
       console.error('Failed to generate plan:', error);
     }
-  }, [dispatch]);
+  }, [dispatch, loginUser, token, actionPlan]);
 
   useEffect(() => {
     void fetchPlan();

@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo} from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -56,7 +57,17 @@ const MealPlannerView = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={styles.content} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => dispatch(getMealPlan())}
+              tintColor={ACCENT}
+            />
+          }
+        >
           <Header title="Meal Planner" onBack={() => navigation.goBack()} />
           
           <WeekStrip 
@@ -76,15 +87,7 @@ const MealPlannerView = () => {
                   key={meal.id}
                   meal={meal}
                   onToggle={() => {
-                    console.log('Toggling meal:', meal.title, 'ID:', meal.rawId);
-                    if (meal.rawId !== undefined && meal.rawId !== null) {
-                      dispatch(
-                        updateMealCompletion({
-                          userMealId: Number(meal.rawId),
-                          is_completed: !meal.is_completed,
-                        }),
-                      );
-                    }
+                    navigation.navigate('MealDetailsView', { meal });
                   }}
                 />
               ))
@@ -204,6 +207,8 @@ const buildMeals = (dayData?: MealPlanDay): DisplayMeal[] => {
       fat: fat ? `${fat}g Fat` : '',
       image_url: firstString(item?.image_url, item?.thumbnail_url),
       is_completed: Boolean(item?.is_completed || item?.completed),
+      ingredients: item?.ingredients || [],
+      recipe: item?.recipe || [],
     };
   });
 };

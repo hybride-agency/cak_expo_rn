@@ -24,6 +24,7 @@ import { useAppDispatch, useAppSelector } from '../../store';
 import Eye_Closed_SVG from '../../../assets/SVG/Eye_Closed_SVG';
 import Eye_Open_SVG from '../../../assets/SVG/Eye_Open_SVG';
 import {
+  appleAuthUser,
   clearError,
   googleAuthUser,
   setIsLoggedIn,
@@ -32,6 +33,7 @@ import { saveAuthSession } from '../../utils/authSession';
 import { setIsQuestion } from '../../slice/WelcomeSlice';
 import { completeAuthSession } from '../../utils/completeAuthSession';
 import { getGoogleAuthPayload } from '../../utils/googleSignIn';
+import { getAppleAuthPayload } from '../../utils/appleSignIn';
 
 const SignUpView = () => {
   const dispatch = useAppDispatch();
@@ -46,6 +48,7 @@ const SignUpView = () => {
   const [passwordError, setPasswordError] = useState<string>('');
   const [phoneError, setPhoneError] = useState<string>('');
   const [googleError, setGoogleError] = useState<string>('');
+  const [appleError, setAppleError] = useState<string>('');
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
 
   const { loading, error: apiError } = useAppSelector(state => state.signUp);
@@ -70,6 +73,7 @@ const SignUpView = () => {
     setPasswordError('');
     setPhoneError('');
     setGoogleError('');
+    setAppleError('');
     dispatch(clearError());
   };
 
@@ -168,6 +172,31 @@ const SignUpView = () => {
     }
   };
 
+  const handleAppleSignUp = async () => {
+    clearErrors();
+
+    if (loading) {
+      return;
+    }
+
+    try {
+      const applePayload = await getAppleAuthPayload();
+
+      if (!applePayload) {
+        return;
+      }
+
+      const result = await dispatch(appleAuthUser(applePayload));
+
+      if (appleAuthUser.fulfilled.match(result)) {
+        await completeAuthSession(dispatch, result?.payload);
+      }
+    } catch (error: unknown) {
+      setAppleError(error instanceof Error ? error.message : 'Apple sign-up failed');
+      console.error('Apple sign up error:', error);
+    }
+  };
+
   // Clear validation errors when user starts typing
   const handleNameChange = (text: string) => {
     setName(text);
@@ -216,8 +245,11 @@ const SignUpView = () => {
               {Platform.OS === 'ios' && (
                 <SocialMediaButtonCmp
                   icon={'apple'}
-                  text={'Sign up with Apple'}
-                  disabled
+                  text={
+                    loading ? 'Signing up with Apple...' : 'Sign up with Apple'
+                  }
+                  onPress={handleAppleSignUp}
+                  disabled={loading}
                 />
               )}
               <SocialMediaButtonCmp
@@ -284,10 +316,10 @@ const SignUpView = () => {
               )}
             </View>
 
-            {(googleApiError || googleError || apiError) && (
+            {(googleApiError || googleError || appleError || apiError) && (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>
-                  {googleApiError || googleError || apiError}
+                  {googleApiError || googleError || appleError || apiError}
                 </Text>
               </View>
             )}

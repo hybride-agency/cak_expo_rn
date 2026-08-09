@@ -1,7 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {AuthResponse} from '../types/auth';
 
 const AUTH_SESSION_KEY = 'auth_session';
+const INSTALL_FLAG_KEY = 'app_has_launched_before';
 
 export interface PersistedAuthSession {
   token: string | null;
@@ -36,4 +38,16 @@ export const loadAuthSession = async (): Promise<PersistedAuthSession | null> =>
 
 export const clearAuthSession = async () => {
   await SecureStore.deleteItemAsync(AUTH_SESSION_KEY);
+};
+
+// iOS Keychain (what expo-secure-store uses) survives app deletion/reinstall,
+// unlike AsyncStorage which lives in the app's data container and gets wiped.
+// Use that gap to detect a fresh install and drop any stale Keychain session.
+export const clearStaleSessionOnFreshInstall = async () => {
+  const hasLaunchedBefore = await AsyncStorage.getItem(INSTALL_FLAG_KEY);
+
+  if (!hasLaunchedBefore) {
+    await clearAuthSession();
+    await AsyncStorage.setItem(INSTALL_FLAG_KEY, 'true');
+  }
 };

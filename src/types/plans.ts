@@ -56,6 +56,8 @@ export interface MealEntry {
   thumbnail_url?: string;
   is_completed?: boolean;
   completed?: boolean;
+  ingredients?: string[];
+  recipe?: string[];
 }
 
 export interface MealPlanDay {
@@ -88,4 +90,6 @@ export interface DisplayMeal {
   fat: string;
   image_url: string;
   is_completed: boolean;
+  ingredients?: string[];
+  recipe?: string[];
 }

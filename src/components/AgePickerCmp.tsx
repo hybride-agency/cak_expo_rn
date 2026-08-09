@@ -41,11 +41,14 @@ const AgePickerCmp = ({
 
   // Remove timeout-based initial scroll; rely on contentOffset for reliable initial positioning
 
+  const onSelectAgeRef = useRef(onSelectAge);
+  onSelectAgeRef.current = onSelectAge;
+
+  // Only re-fires when the selected value changes, not when the parent
+  // passes a new (often unmemoized) callback identity on every render.
   useEffect(() => {
-    if (onSelectAge) {
-      onSelectAge(selectedAge);
-    }
-  }, [onSelectAge, selectedAge]);
+    onSelectAgeRef.current?.(selectedAge);
+  }, [selectedAge]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollY = event.nativeEvent.contentOffset.y;

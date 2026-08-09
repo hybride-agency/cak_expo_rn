@@ -43,6 +43,13 @@ export const getGoogleAuthPayload = async () => {
 
     configureGoogleSignIn();
 
+    try {
+      // Clear any existing session to force the account picker to show up
+      await GoogleSignin.signOut();
+    } catch (e) {
+      // Ignore errors if not already signed in
+    }
+
     if (Platform.OS === 'android') {
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,

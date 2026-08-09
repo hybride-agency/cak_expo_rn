@@ -45,11 +45,14 @@ import {
   
     // Remove timeout-based initial scroll; rely on contentOffset for reliable initial positioning
 
+    const onSelectHeightRef = useRef(onSelectHeight);
+    onSelectHeightRef.current = onSelectHeight;
+
+    // Only re-fires when the selected value changes, not when the parent
+    // passes a new (often unmemoized) callback identity on every render.
     useEffect(() => {
-      if (onSelectHeight) {
-        onSelectHeight(selectedHeight);
-      }
-    }, [onSelectHeight, selectedHeight]);
+      onSelectHeightRef.current?.(selectedHeight);
+    }, [selectedHeight]);
   
     const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const scrollY = event.nativeEvent.contentOffset.y;

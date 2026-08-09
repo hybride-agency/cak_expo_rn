@@ -1,6 +1,10 @@
+import fs from 'fs';
 import type {ConfigContext, ExpoConfig} from 'expo/config';
 
 const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME;
+const googleServicesFile = fs.existsSync('./google-services.json')
+  ? './google-services.json'
+  : undefined;
 
 const ralewayFonts = [
   './assets/fonts/Raleway-Black.ttf',
@@ -34,9 +38,10 @@ export default ({config}: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'dark',
   runtimeVersion: {policy: 'appVersion'},
   ios: {
-    bundleIdentifier: 'com.cakfit',
+    bundleIdentifier: 'com.cakapp',
     buildNumber: '1',
     supportsTablet: false,
+    associatedDomains: ['applinks:cak.fit'],
     config: {
       usesNonExemptEncryption: false,
     },
@@ -51,6 +56,7 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     allowBackup: false,
     softwareKeyboardLayoutMode: 'resize',
     predictiveBackGestureEnabled: false,
+    googleServicesFile,
   },
   plugins: [
     [
@@ -65,6 +71,16 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     ['expo-font', {fonts: ralewayFonts}],
     ['expo-secure-store', {configureAndroidBackup: true}],
     ['expo-navigation-bar', {hidden: true}],
+    'expo-web-browser',
+    'expo-image',
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'The app needs access to your photos to let you choose a profile picture.',
+      }
+    ],
+    'expo-apple-authentication',
+    'expo-notifications',
     ...(googleIosUrlScheme
       ? [
           [

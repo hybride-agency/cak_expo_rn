@@ -7,6 +7,7 @@ import signUpReducer from "../slice/SignUpSlice";
 import planReducer from "../slice/PlanSlice";
 import homeReducer from "../slice/HomeSlice";
 import subscriptionHistoryReducer from "../slice/SubscriptionHistorySlice";
+import paymentReducer from "../slice/PaymentSlice";
 
 export const store = configureStore({
     reducer: {
@@ -17,6 +18,7 @@ export const store = configureStore({
         plan: planReducer,
         home: homeReducer,
         subscriptionHistory: subscriptionHistoryReducer,
+        payment: paymentReducer,
     }
 })
 

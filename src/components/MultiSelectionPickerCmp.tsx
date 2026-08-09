@@ -1,4 +1,5 @@
-import { Image, Text, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
 import React from 'react';
 import Check_Logo_SVG from '../../assets/SVG/Check_Logo_SVG';
 import type {PickerItem} from './DropDownPickerCmp';
@@ -47,7 +48,9 @@ const MultiSelectionPickerCmp = ({
           <Image
             source={{ uri: item.image_url }}
             style={styles.image}
-            resizeMode="contain"
+            contentFit="contain"
+            cachePolicy="memory-disk"
+            transition={0}
           />
         </View>
       )}

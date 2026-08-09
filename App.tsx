@@ -5,7 +5,8 @@
  * @format
  */
 
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Linking, Platform, StyleSheet, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { NavigationBar } from 'expo-navigation-bar';
 import AuthNavigator from './src/navigation/AuthenticationStack';
 import { NavigationContainer } from '@react-navigation/native';
@@ -24,8 +25,10 @@ import {StatusBar} from 'expo-status-bar';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import { hydrateLoginSession } from './src/slice/LoginSlice';
 import { setUser } from './src/slice/SignUpSlice';
-import { loadAuthSession } from './src/utils/authSession';
+import { clearStaleSessionOnFreshInstall, loadAuthSession } from './src/utils/authSession';
 import { setIsPlan, setIsQuestion, setIsWelcome } from './src/slice/WelcomeSlice';
+import { resumePendingWhishPayment } from './src/utils/resumePendingWhishPayment';
+import { registerForPushNotifications } from './src/utils/pushNotifications';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -43,6 +46,8 @@ function AppContent() {
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
+        await clearStaleSessionOnFreshInstall();
+
         const savedSession = await loadAuthSession();
 
         if (savedSession?.token) {
@@ -61,6 +66,8 @@ function AppContent() {
           dispatch(setIsWelcome(Boolean(savedSession.isWelcome)));
           dispatch(setIsQuestion(Boolean(savedSession.isQuestion)));
           dispatch(setIsPlan(Boolean(savedSession.isPlan)));
+
+          void resumePendingWhishPayment(dispatch);
         }
       } finally {
         setIsBootstrapping(false);
@@ -69,6 +76,58 @@ function AppContent() {
 
     bootstrapAuth();
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    void registerForPushNotifications();
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') {
+        void resumePendingWhishPayment(dispatch);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [dispatch, isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const handleUrl = (url: string) => {
+      if (!isWhishPaymentRedirect(url)) {
+        return;
+      }
+
+      // The hosted checkout view may still be presented on top of the app;
+      // close it and re-check the payment we already have stored locally.
+      // The redirect's result is never trusted on its own (see the Whish
+      // mobile integration guide) — resumePendingWhishPayment always
+      // re-verifies with Laravel.
+      void WebBrowser.dismissBrowser();
+      void resumePendingWhishPayment(dispatch);
+    };
+
+    Linking.getInitialURL().then(url => {
+      if (url) {
+        handleUrl(url);
+      }
+    });
+
+    const subscription = Linking.addEventListener('url', ({url}) => handleUrl(url));
+
+    return () => subscription.remove();
+  }, [dispatch, isLoggedIn]);
 
   if (isBootstrapping) {
     return (
@@ -171,6 +230,18 @@ const hasActivePlan = (loginUser: unknown) => {
       dataUser?.has_active_plan ||
       rootUser?.has_active_plan,
   );
+};
+
+const isWhishPaymentRedirect = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === 'cak.fit' &&
+      (parsed.pathname === '/payment/success' || parsed.pathname === '/payment/failure')
+    );
+  } catch {
+    return false;
+  }
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
