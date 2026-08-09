@@ -11,11 +11,10 @@ import { NavigationBar } from 'expo-navigation-bar';
 import AuthNavigator from './src/navigation/AuthenticationStack';
 import { NavigationContainer } from '@react-navigation/native';
 import TutorialNavigator from './src/navigation/TutorialStack';
-import { useSelector } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { RootState, store, useAppDispatch } from './src/store';
 import QuestionNavigator from './src/navigation/QuestionStack';
 import PlanNavigator from './src/navigation/PlanStack';
-import { Provider } from 'react-redux';
 import MainNavigator from './src/navigation/MainStack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
@@ -29,6 +28,7 @@ import { clearStaleSessionOnFreshInstall, loadAuthSession } from './src/utils/au
 import { setIsPlan, setIsQuestion, setIsWelcome } from './src/slice/WelcomeSlice';
 import { resumePendingWhishPayment } from './src/utils/resumePendingWhishPayment';
 import { registerForPushNotifications } from './src/utils/pushNotifications';
+import { isWhishPaymentRedirect } from './src/utils/whishRedirect';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -114,7 +114,9 @@ function AppContent() {
       // The redirect's result is never trusted on its own (see the Whish
       // mobile integration guide) — resumePendingWhishPayment always
       // re-verifies with Laravel.
-      void WebBrowser.dismissBrowser();
+      if (Platform.OS === 'ios') {
+        void WebBrowser.dismissBrowser().catch(() => undefined);
+      }
       void resumePendingWhishPayment(dispatch);
     };
 
@@ -230,18 +232,6 @@ const hasActivePlan = (loginUser: unknown) => {
       dataUser?.has_active_plan ||
       rootUser?.has_active_plan,
   );
-};
-
-const isWhishPaymentRedirect = (url: string): boolean => {
-  try {
-    const parsed = new URL(url);
-    return (
-      parsed.hostname === 'cak.fit' &&
-      (parsed.pathname === '/payment/success' || parsed.pathname === '/payment/failure')
-    );
-  } catch {
-    return false;
-  }
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
