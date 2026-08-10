@@ -1095,7 +1095,7 @@ const buildPromoPlans = (
       item?.description,
       item?.short_description,
       planSection?.description,
-      "Enjoy a 7-day free trial. Cancel anytime.",
+      "Choose the plan that fits your goals.",
     ),
     priceLabel: formatOptionalPrice(
       item?.price,
@@ -1124,7 +1124,7 @@ function buildUpgradePlans(
     description: firstString(
       item?.description,
       item?.features,
-      "Enjoy a 7-day free trial. Cancel anytime.",
+      "Choose the plan that fits your goals.",
     ),
     priceLabel: formatOptionalPrice(
       item?.starting_price,

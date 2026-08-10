@@ -210,7 +210,6 @@ const QuestionListView = () => {
   const [submitAnswerResponse, setSubmitAnswerResponse] =
     useState<SubmitAnswerResponse | null>(null);
   const [submbitted, setSubmbitted] = useState<boolean>(false);
-  const [, setTdee] = useState<number>(0);
   const [selectedGender, setSelectedGender] = useState<Gender | null>(null);
   const [questionsByGender, setQuestionsByGender] = useState<
     Partial<Record<Gender, QuizData>>
@@ -364,6 +363,10 @@ const QuestionListView = () => {
 
   const currentQuestion = getCurrentQuestion();
   const backgroundImageUrl = question ? currentQuestion?.image_url : null;
+  const displayedTdee =
+    submitAnswerResponse?.tdee_per_day ??
+    submitAnswerResponse?.tdee_calculations?.find(item => item.is_selected)
+      ?.tdee;
 
   // Check if current question should hide next button and auto-advance
   const shouldAutoAdvance = () => {
@@ -413,7 +416,6 @@ const QuestionListView = () => {
           console.log('Submit answer successful!', result?.payload);
           setSubmitAnswerResponse(result?.payload?.data);
           setSubmbitted(true);
-          setTdee(result?.payload?.data?.tdee_per_day);
           // Handle successful submission (e.g., navigate to results or next screen)
         }
       } catch (error) {
@@ -673,8 +675,9 @@ const QuestionListView = () => {
 
             <View style={styles.tdeeContainer}>
               <Text style={styles.tdeeTitle}>
-                Your TDEE is <Text style={styles.tdeeValue}>****</Text> calories
-                per day.
+                Your TDEE is{' '}
+                <Text style={styles.tdeeValue}>{displayedTdee ?? '—'}</Text>{' '}
+                calories per day.
               </Text>
             </View>
 

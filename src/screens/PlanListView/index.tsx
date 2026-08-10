@@ -60,7 +60,7 @@ const PlanListView = () => {
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{section?.title || 'Choose Your Plan'}</Text>
           <Text style={styles.description}>
-            {section?.description || 'Enjoy a 7-day free trial. Cancel anytime.'}
+            {section?.description || 'Choose the plan that fits your goals.'}
           </Text>
         </View>
 

@@ -15,13 +15,9 @@ import {RootState, useAppDispatch} from '../../store';
 import {useSelector} from 'react-redux';
 import { SCREEN_PADDING } from '../../../theme';
 import { getPlanPrice } from '../../slice/PlanSlice';
-import { setIsPlan, setIsQuestion, setIsWelcome } from '../../slice/WelcomeSlice';
 import { PlanPrice } from '../../../global';
 import Small_Check_Logo_SVG from '../../../assets/SVG/Small_Check_Logo_SVG';
 import Arrow_Back_Logo_SVG from '../../../assets/SVG/Arrow_Back_Logo_SVG';
-import { hydrateLoginSession } from '../../slice/LoginSlice';
-import { setUser } from '../../slice/SignUpSlice';
-import { saveAuthSession } from '../../utils/authSession';
 import { useWhishCheckout } from '../../hooks/useWhishCheckout';
 
 const PlanView = () => {
@@ -35,9 +31,6 @@ const PlanView = () => {
 
   const section = useSelector((state: RootState) => state.plan.section);
   const loading = useSelector((state: RootState) => state.plan.loading);
-  const loginUser = useSelector((state: RootState) => state.login.user);
-  const token = useSelector((state: RootState) => state.signUp.token);
-  const profile = useSelector((state: RootState) => state.home.profile);
   const selectedPlanId = useSelector(
     (state: RootState) => state.plan.selectedPlanId,
   );
@@ -77,7 +70,7 @@ const PlanView = () => {
     fetchPlanPrice();
   }, [fetchPlanPrice]);
 
-  const handleStartTrial = async () => {
+  const handlePurchase = async () => {
     const pricing = planPrice?.pricings.find(
       item => item.id === selectedPricingId,
     );
@@ -88,38 +81,6 @@ const PlanView = () => {
 
     await startPurchase(planPrice.id, pricing.id);
   };
-
-  useEffect(() => {
-    if (checkoutStatus !== 'succeeded' || isUpgrade) {
-      return;
-    }
-
-    const nextLoginUser = {
-      ...(loginUser || {}),
-      data: {
-        ...(loginUser?.data || {}),
-        user: profile?.user ?? loginUser?.data?.user,
-        active_plan: profile?.active_plan ?? loginUser?.data?.active_plan,
-      },
-    };
-    const actionPlan = profile?.active_plan?.alias ?? planPrice?.alias ?? '';
-
-    dispatch(hydrateLoginSession({isLoggedIn: true, user: nextLoginUser}));
-    dispatch(setUser({token, action_plan: actionPlan}));
-    void saveAuthSession({
-      token,
-      action_plan: actionPlan,
-      loginUser: nextLoginUser,
-      isLoggedIn: true,
-      isWelcome: false,
-      isQuestion: false,
-      isPlan: false,
-    });
-    dispatch(setIsPlan(false));
-    dispatch(setIsQuestion(false));
-    dispatch(setIsWelcome(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkoutStatus]);
 
   const handleCheckoutDismiss = () => {
     const shouldReturnHome = isUpgrade && checkoutStatus === 'succeeded';
@@ -271,10 +232,10 @@ const PlanView = () => {
 
               <View style={styles.buttonPrimaryContainer}>
                 <PrimaryButtonCmp
-                  text={isUpgrade ? 'Upgrade Plan' : 'Start 7-Day Free Trial'}
+                  text={isUpgrade ? 'Upgrade Plan' : 'Buy Plan'}
                   loading={purchaseLoading}
                   disabled={purchaseLoading || !selectedPricingId}
-                  onPress={handleStartTrial}
+                  onPress={handlePurchase}
                 />
               </View>
             </View>
@@ -285,7 +246,7 @@ const PlanView = () => {
       <WhishPaymentOverlay
         status={checkoutStatus}
         errorMessage={checkoutError}
-        onRetry={handleStartTrial}
+        onRetry={handlePurchase}
         onDismiss={handleCheckoutDismiss}
       />
     </View>

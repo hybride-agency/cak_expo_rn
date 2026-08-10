@@ -1,4 +1,5 @@
 import {useCallback, useState} from 'react';
+import {reloadAppAsync} from 'expo';
 import {useAppDispatch} from '../store';
 import {
   createWhishCheckout,
@@ -6,8 +7,9 @@ import {
   fetchWhishPayment,
   setCurrentPayment,
 } from '../slice/PaymentSlice';
-import {getCurrentPlan, getHomepage, getProfile} from '../slice/HomeSlice';
+import {getCurrentPlan, getHomepage} from '../slice/HomeSlice';
 import {getSubscriptionHistory} from '../slice/SubscriptionHistorySlice';
+import {refreshAuthenticatedSession} from '../utils/completeAuthSession';
 import {generateUuid} from '../utils/uuid';
 import {clearPendingPayment, savePendingPayment} from '../utils/pendingPayment';
 import {WHISH_TERMINAL_STATUSES, WhishPayment} from '../types/payments';
@@ -42,10 +44,10 @@ export const useWhishCheckout = () => {
 
   const refreshEntitlements = useCallback(async () => {
     await Promise.all([
-      dispatch(getProfile()),
       dispatch(getCurrentPlan()),
       dispatch(getHomepage()),
       dispatch(getSubscriptionHistory()),
+      refreshAuthenticatedSession(dispatch),
     ]);
   }, [dispatch]);
 
@@ -69,7 +71,17 @@ export const useWhishCheckout = () => {
               await refreshEntitlements();
             }
 
-            setStatus(latest.status === 'succeeded' ? 'succeeded' : 'failed');
+            const succeeded = latest.status === 'succeeded';
+            setStatus(succeeded ? 'succeeded' : 'failed');
+
+            if (succeeded) {
+              // The refreshed session is already in SecureStore. Rebuilding
+              // the JS app makes the normal bootstrap restore it and remounts
+              // the tab navigator/home screen from the new plan entitlement.
+              await reloadAppAsync('plan-entitlement-updated').catch(
+                () => undefined,
+              );
+            }
             return;
           }
         } else if (result.payload?.status === 404) {
