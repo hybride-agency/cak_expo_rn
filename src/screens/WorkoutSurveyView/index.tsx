@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: BACKGROUND},
   container: {flex: 1, paddingHorizontal: 30},
   closeButton: {marginTop: 10, alignSelf: 'flex-end'},
-  content: {flex: 1, alignItems: 'center', paddingTop: 10},
+  content: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60},
   starRow: {flexDirection: 'row', gap: 10, marginBottom: 24},
   title: {color: '#FFF', fontSize: 32, fontFamily: 'Raleway-Black', marginBottom: 12, textAlign: 'center'},
   subtitle: {color: '#BBB', fontSize: 16, fontFamily: 'Raleway-Medium', marginBottom: 30, textAlign: 'center', lineHeight: 22},

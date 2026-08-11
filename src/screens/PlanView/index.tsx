@@ -212,9 +212,9 @@ const PlanView = () => {
                           </Text>
                         </View>
                       )}
-                      <Text style={styles.priceValue}>
+                      <Text style={styles.priceValue} adjustsFontSizeToFit numberOfLines={1}>
                         {item.price}$
-                        <Text style={styles.priceCurrency}>/{item.interval}</Text>
+                        <Text style={styles.priceCurrency}>/{String(item.interval).replace(' ', '\u00A0')}</Text>
                       </Text>
                       <Text style={styles.priceDescription}>{item.description}</Text>
                     </TouchableOpacity>
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: '42.5%',
+    height: '100%',
   },
   titleContainer: {
     alignItems: 'center',

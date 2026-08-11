@@ -45,3 +45,4 @@ example
 /firebase-oauth-creds
 /google-services.json
 *firebase-adminsdk*.json
+/builds/

@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 10,
   },
-  statLabel: {color: BACKGROUND, fontSize: 14, fontFamily: 'Raleway-Medium'},
+  statLabel: {color: BACKGROUND, fontSize: 14, fontFamily: 'Raleway-Medium', textAlign: 'center'},
   primaryButton: {
     width: '100%',
     height: 60,

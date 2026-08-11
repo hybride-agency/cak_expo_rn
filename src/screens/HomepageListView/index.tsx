@@ -234,16 +234,15 @@ const HomepageListView = () => {
     homepageWater?.daily_goal_ml,
     0,
   );
-  const waterTotal = clampNumber(
+  const waterTotal = Math.max(
+    0,
     firstNumber(
       homepageWater?.total_ml,
       homepageWater?.current_ml,
       homepageWater?.consumed_ml,
       homepageWater?.today_total_ml,
       0,
-    ),
-    0,
-    Math.max(waterGoal, 1),
+    )
   );
 
   const calorieSummary = firstObject(
@@ -357,7 +356,7 @@ const HomepageListView = () => {
     Number(showWaterSection) + Number(showCalorieSection);
 
   const onAddWater = async (amount: number) => {
-    const nextTotal = Math.min(waterTotal + amount, waterGoal);
+    const nextTotal = waterTotal + amount;
     setSelectedWaterStep(amount);
 
     const result = await dispatch(
@@ -466,10 +465,12 @@ const HomepageListView = () => {
                 You're in. Let's train. CAK style!
               </Text>
             </View>
-            <Image
-              source={avatarUri ? { uri: avatarUri } : FALLBACK_AVATAR}
-              style={styles.avatar}
-            />
+            <TouchableOpacity onPress={() => navigation.getParent?.()?.navigate("ProfileTab" as never)}>
+              <Image
+                source={avatarUri ? { uri: avatarUri } : FALLBACK_AVATAR}
+                style={styles.avatar}
+              />
+            </TouchableOpacity>
           </View>
 
           {!hasSubscription && promoPlans.length > 0 ? (
@@ -689,7 +690,6 @@ const HomepageListView = () => {
 
           {tips.length > 0 ? (
             <View style={styles.sectionBlock}>
-              <Text style={styles.tipsTitle}>TIPS</Text>
               <View style={styles.tipCard}>
                 <Text style={styles.tipHeadline}>{tips[0].title}</Text>
                 <Text style={styles.tipBody}>{tips[0].description}</Text>
@@ -837,9 +837,8 @@ const WaterCard = ({
 
   return (
     <View style={[styles.waterCard, containerStyle]}>
-      <Text style={styles.waterTitle}>Water Intake</Text>
       <View style={styles.glassWrap}>
-        <WaterGlass level={waterFillLevel(amount)} />
+        <WaterGlass width={64} level={waterFillLevel(amount)} />
       </View>
       <View style={styles.waterControls}>
         <TouchableOpacity
@@ -986,14 +985,18 @@ const OverviewCard = ({
     </View>
   );
 
+  if (!item.image_url) {
+    return (
+      <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={[styles.overviewCard, { height: 'auto', backgroundColor: '#232323' }]}>
+        {caption}
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <ImageBackground
-        source={
-          item.image_url
-            ? { uri: item.image_url }
-            : overviewFallbackImage(item.id, item.kind)
-        }
+        source={{ uri: item.image_url }}
         imageStyle={styles.overviewImage}
         style={styles.overviewCard}
       >
@@ -1002,22 +1005,6 @@ const OverviewCard = ({
       </ImageBackground>
     </TouchableOpacity>
   );
-};
-
-// Derived from the id rather than random, so a card keeps the same photo
-// across re-renders instead of reshuffling on every state change.
-const overviewFallbackImage = (seed: string, kind: "meal" | "workout") => {
-  let hash = 0;
-
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-  }
-
-  const slot = (hash % WORKOUT_FALLBACK_IMAGE_COUNT) + 1;
-
-  return {
-    uri: kind === "meal" ? mealFallbackUri(slot) : workoutFallbackUri(slot),
-  };
 };
 
 const ChevronRight = ({ dark = false }: { dark?: boolean }) => (
@@ -2045,7 +2032,6 @@ const styles = StyleSheet.create({
   tipCard: {
     backgroundColor: ACCENT,
     borderRadius: 28,
-    minHeight: 220,
     paddingHorizontal: 24,
     paddingVertical: 22,
     justifyContent: "center",
