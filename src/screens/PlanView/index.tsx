@@ -237,6 +237,9 @@ const PlanView = () => {
                   disabled={purchaseLoading || !selectedPricingId}
                   onPress={handlePurchase}
                 />
+                <Text style={styles.paymentProviderText}>
+                  Secure membership payment via Whish Money
+                </Text>
               </View>
             </View>
           </ScrollView>
@@ -309,6 +312,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_PADDING.left,
     alignItems: 'center',
     marginTop: 32,
+  },
+  paymentProviderText: {
+    color: '#888',
+    fontSize: 12,
+    fontFamily: 'Raleway-Medium',
+    marginTop: 10,
+    textAlign: 'center',
   },
   loadingContainer: {
     paddingTop: 67,

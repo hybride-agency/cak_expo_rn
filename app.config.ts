@@ -2,9 +2,9 @@ import fs from 'fs';
 import type {ConfigContext, ExpoConfig} from 'expo/config';
 
 const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME;
-const googleServicesFile = fs.existsSync('./google-services.json')
-  ? './google-services.json'
-  : undefined;
+const googleServicesFile = process.env.GOOGLE_SERVICES_JSON ?? (
+  fs.existsSync('./google-services.json') ? './google-services.json' : undefined
+);
 
 const ralewayFonts = [
   './assets/fonts/Raleway-Black.ttf',
@@ -29,7 +29,7 @@ const ralewayFonts = [
 
 export default ({config}: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'cak_rn',
+  name: 'CAK Fitness',
   slug: 'cak',
   version: '1.0.0',
   orientation: 'default',
@@ -49,6 +49,10 @@ export default ({config}: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.cak_rn',
     versionCode: 1,
+    blockedPermissions: [
+      'android.permission.CAMERA',
+      'android.permission.RECORD_AUDIO',
+    ],
     adaptiveIcon: {
       foregroundImage: './assets/images/app-icon.png',
       backgroundColor: '#171717',
@@ -59,6 +63,14 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     googleServicesFile,
   },
   plugins: [
+    [
+      'expo-build-properties',
+      {
+        ios: {
+          buildReactNativeFromSource: true,
+        },
+      },
+    ],
     [
       'expo-splash-screen',
       {

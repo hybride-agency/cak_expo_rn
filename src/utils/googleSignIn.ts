@@ -46,7 +46,7 @@ export const getGoogleAuthPayload = async () => {
     try {
       // Clear any existing session to force the account picker to show up
       await GoogleSignin.signOut();
-    } catch (e) {
+    } catch {
       // Ignore errors if not already signed in
     }
 

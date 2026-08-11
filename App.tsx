@@ -24,7 +24,11 @@ import {StatusBar} from 'expo-status-bar';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import { hydrateLoginSession } from './src/slice/LoginSlice';
 import { setUser } from './src/slice/SignUpSlice';
-import { clearStaleSessionOnFreshInstall, loadAuthSession } from './src/utils/authSession';
+import {
+  clearStaleSessionOnFreshInstall,
+  consumeOpenAuthOnNextLaunch,
+  loadAuthSession,
+} from './src/utils/authSession';
 import { setIsPlan, setIsQuestion, setIsWelcome } from './src/slice/WelcomeSlice';
 import { resumePendingWhishPayment } from './src/utils/resumePendingWhishPayment';
 import { registerForPushNotifications } from './src/utils/pushNotifications';
@@ -50,6 +54,12 @@ function AppContent() {
     const bootstrapAuth = async () => {
       try {
         await clearStaleSessionOnFreshInstall();
+
+        if (await consumeOpenAuthOnNextLaunch()) {
+          dispatch(setIsQuestion(false));
+          dispatch(setIsPlan(false));
+          dispatch(setIsWelcome(true));
+        }
 
         const savedSession = await loadAuthSession();
 

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Path, Circle} from 'react-native-svg';
-import {getMealPlan, updateMealCompletion} from '../../slice/HomeSlice';
+import {getMealPlan} from '../../slice/HomeSlice';
 import {useAppDispatch, useAppSelector} from '../../store';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';

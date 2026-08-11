@@ -4,6 +4,7 @@ import type {AuthResponse} from '../types/auth';
 
 const AUTH_SESSION_KEY = 'auth_session';
 const INSTALL_FLAG_KEY = 'app_has_launched_before';
+const OPEN_AUTH_ON_NEXT_LAUNCH_KEY = 'open_auth_on_next_launch';
 
 export interface PersistedAuthSession {
   token: string | null;
@@ -53,6 +54,21 @@ export const loadAuthSession = async (): Promise<PersistedAuthSession | null> =>
 
 export const clearAuthSession = async () => {
   await SecureStore.deleteItemAsync(AUTH_SESSION_KEY);
+};
+
+export const openAuthOnNextLaunch = async () => {
+  await AsyncStorage.setItem(OPEN_AUTH_ON_NEXT_LAUNCH_KEY, 'true');
+};
+
+export const consumeOpenAuthOnNextLaunch = async () => {
+  const shouldOpenAuth =
+    (await AsyncStorage.getItem(OPEN_AUTH_ON_NEXT_LAUNCH_KEY)) === 'true';
+
+  if (shouldOpenAuth) {
+    await AsyncStorage.removeItem(OPEN_AUTH_ON_NEXT_LAUNCH_KEY);
+  }
+
+  return shouldOpenAuth;
 };
 
 // iOS Keychain (what expo-secure-store uses) survives app deletion/reinstall,

@@ -1,18 +1,19 @@
 import React, {useEffect, useState} from 'react';
-import {Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Switch, Modal, ActivityIndicator, Platform, KeyboardAvoidingView, Alert} from 'react-native';
+import {Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Switch, Modal, ActivityIndicator, Platform, KeyboardAvoidingView, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {logout} from '../../slice/LoginSlice';
 import {clearUser} from '../../slice/SignUpSlice';
 import {getProfile} from '../../slice/HomeSlice';
 import {setIsPlan, setIsQuestion, setIsWelcome} from '../../slice/WelcomeSlice';
 import {useAppDispatch, useAppSelector} from '../../store';
-import {clearAuthSession} from '../../utils/authSession';
+import {clearAuthSession, openAuthOnNextLaunch} from '../../utils/authSession';
 import {useNavigation} from '@react-navigation/native';
 import Svg, {Path, Circle, Rect} from 'react-native-svg';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import {reloadAppAsync} from 'expo';
 import * as ImagePicker from 'expo-image-picker';
 import axiosInstance from '../../axiosConfig';
 
@@ -52,6 +53,11 @@ const ProfileView = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [isLogoutModalVisible, setLogoutModalVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const hasPassword = user?.has_password !== false;
 
   useEffect(() => {
     dispatch(getProfile());
@@ -97,6 +103,68 @@ const ProfileView = () => {
       dispatch(setIsQuestion(false));
       dispatch(setIsPlan(false));
       dispatch(setIsWelcome(true));
+    }
+  };
+
+  const finishSignedOutSession = async () => {
+    await clearAuthSession();
+    dispatch(logout());
+    dispatch(clearUser());
+    dispatch(setIsQuestion(false));
+    dispatch(setIsPlan(false));
+    dispatch(setIsWelcome(true));
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingAccount) {
+      return;
+    }
+
+    setDeleteModalVisible(false);
+    setDeletePassword('');
+    setDeleteConfirmation('');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'delete') {
+      Alert.alert('Confirmation required', 'Type delete exactly to continue.');
+      return;
+    }
+
+    if (hasPassword && !deletePassword) {
+      Alert.alert('Password required', 'Enter your current password to continue.');
+      return;
+    }
+
+    let accountDeleted = false;
+
+    try {
+      setDeletingAccount(true);
+      await axiosInstance.delete('/auth/account', {
+        data: {
+          ...(hasPassword ? {password: deletePassword} : {}),
+          confirmation: deleteConfirmation,
+          device_name: `${Platform.OS} app`,
+        },
+      });
+      accountDeleted = true;
+      await clearAuthSession();
+      await openAuthOnNextLaunch();
+      await reloadAppAsync('Account deleted');
+    } catch (error) {
+      if (accountDeleted) {
+        console.error('Failed to reload after account deletion', error);
+        setDeleteModalVisible(false);
+        await finishSignedOutSession();
+        Alert.alert(
+          'Account deleted',
+          'Your account was deleted, but the app could not restart automatically.',
+        );
+      } else {
+        console.error('Failed to delete account', error);
+      }
+
+      setDeletingAccount(false);
     }
   };
 
@@ -238,6 +306,10 @@ const ProfileView = () => {
           <TouchableOpacity activeOpacity={0.9} style={styles.logoutButton} onPress={() => setLogoutModalVisible(true)}>
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.9} style={styles.deleteAccountButton} onPress={() => setDeleteModalVisible(true)}>
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -286,6 +358,71 @@ const ProfileView = () => {
                   )}
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeDeleteModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Delete Account</Text>
+              <TouchableOpacity onPress={closeDeleteModal} style={styles.closeButton} disabled={deletingAccount}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke="#FFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalBodyText}>
+              This permanently deletes your profile, fitness and nutrition data, workout progress, payment history, and active membership access. This cannot be undone.
+            </Text>
+
+            {hasPassword ? (
+              <TextInput
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                placeholder="Current password"
+                placeholderTextColor="#777"
+                secureTextEntry
+                autoCapitalize="none"
+                editable={!deletingAccount}
+                style={styles.destructiveInput}
+              />
+            ) : null}
+
+            <Text style={styles.confirmationLabel}>Type delete to confirm</Text>
+            <TextInput
+              value={deleteConfirmation}
+              onChangeText={setDeleteConfirmation}
+              placeholder="delete"
+              placeholderTextColor="#777"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!deletingAccount}
+              style={styles.destructiveInput}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={closeDeleteModal} disabled={deletingAccount}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmLogoutButton, deleteConfirmation !== 'delete' && styles.disabledButton]}
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount || deleteConfirmation !== 'delete'}
+              >
+                {deletingAccount ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmLogoutText}>Delete forever</Text>}
+              </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -389,6 +526,8 @@ const styles = StyleSheet.create({
 
   logoutButton: {backgroundColor: '#1E1E1E', borderRadius: 20, paddingVertical: 18, alignItems: 'center', marginTop: 10},
   logoutText: {color: '#FF4444', fontSize: 16, fontFamily: 'Raleway-Bold'},
+  deleteAccountButton: {paddingVertical: 18, alignItems: 'center', marginTop: 4},
+  deleteAccountText: {color: '#FF6B6B', fontSize: 14, fontFamily: 'Raleway-Bold', textDecorationLine: 'underline'},
 
   modalOverlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end'},
   modalContent: {backgroundColor: '#171717', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40},
@@ -397,11 +536,14 @@ const styles = StyleSheet.create({
   closeButton: {padding: 4},
   modalForm: {},
   modalBodyText: {color: '#CCC', fontSize: 15, fontFamily: 'Raleway-Medium', marginBottom: 32, lineHeight: 22},
+  confirmationLabel: {color: '#CCC', fontSize: 13, fontFamily: 'Raleway-Medium', marginBottom: 8},
+  destructiveInput: {backgroundColor: '#242424', borderWidth: 1, borderColor: '#3A3A3A', borderRadius: 12, color: '#FFF', fontSize: 15, fontFamily: 'Raleway-Medium', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16},
   modalActions: {flexDirection: 'row', gap: 12},
   cancelButton: {flex: 1, backgroundColor: '#2C2C2C', paddingVertical: 16, borderRadius: 12, alignItems: 'center'},
   cancelButtonText: {color: '#FFF', fontSize: 15, fontFamily: 'Raleway-Bold'},
   confirmLogoutButton: {flex: 1, backgroundColor: '#FF4444', paddingVertical: 16, borderRadius: 12, alignItems: 'center'},
   confirmLogoutText: {color: '#FFF', fontSize: 15, fontFamily: 'Raleway-Bold'},
+  disabledButton: {opacity: 0.45},
 });
 
 export default ProfileView;

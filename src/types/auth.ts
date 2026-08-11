@@ -15,6 +15,7 @@ export interface UserProfile {
   role?: string;
   test_completed?: boolean;
   has_active_plan?: boolean;
+  has_password?: boolean;
 }
 
 export interface PlanSummary {
