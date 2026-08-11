@@ -220,7 +220,7 @@ const PlanView = () => {
                     </TouchableOpacity>
                   )}
                   contentContainerStyle={{
-                    width: '100%',
+                    minWidth: '100%',
                     justifyContent: planPrice?.pricings?.length === 1 ? 'center' : 'flex-start',
                   }}
                 />
