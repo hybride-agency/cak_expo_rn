@@ -56,9 +56,7 @@ const ProfileView = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  const hasPassword = user?.has_password !== false;
 
   useEffect(() => {
     dispatch(getProfile());
@@ -122,7 +120,6 @@ const ProfileView = () => {
     }
 
     setDeleteModalVisible(false);
-    setDeletePassword('');
     setDeleteConfirmation('');
   };
 
@@ -132,18 +129,12 @@ const ProfileView = () => {
       return;
     }
 
-    if (hasPassword && !deletePassword) {
-      Alert.alert('Password required', 'Enter your current password to continue.');
-      return;
-    }
-
     let accountDeleted = false;
 
     try {
       setDeletingAccount(true);
       await axiosInstance.delete('/auth/account', {
         data: {
-          ...(hasPassword ? {password: deletePassword} : {}),
           confirmation: deleteConfirmation,
           device_name: `${Platform.OS} app`,
         },
@@ -387,19 +378,6 @@ const ProfileView = () => {
             <Text style={styles.modalBodyText}>
               This permanently deletes your profile, fitness and nutrition data, workout progress, payment history, and active membership access. This cannot be undone.
             </Text>
-
-            {hasPassword ? (
-              <TextInput
-                value={deletePassword}
-                onChangeText={setDeletePassword}
-                placeholder="Current password"
-                placeholderTextColor="#777"
-                secureTextEntry
-                autoCapitalize="none"
-                editable={!deletingAccount}
-                style={styles.destructiveInput}
-              />
-            ) : null}
 
             <Text style={styles.confirmationLabel}>Type delete to confirm</Text>
             <TextInput
