@@ -7,7 +7,15 @@ import type {
   ProfileData,
   ProfileUpdatePayload,
 } from "../types/home";
-import type { FitnessPlan, MealEntry, MealPlan } from "../types/plans";
+import type {
+  FitnessPlan,
+  MealEntry,
+  MealPlan,
+  ProgressPhotoComparison,
+  ProgressPhotoPose,
+  ProgressPhotoStatus,
+  WorkoutSchedule,
+} from "../types/plans";
 import { getApiErrorMessage } from "../utils/apiError";
 
 export const getHomepage = createAsyncThunk(
@@ -190,6 +198,134 @@ export const submitWeeklyReview = createAsyncThunk(
   },
 );
 
+export const getWorkoutSchedule = createAsyncThunk(
+  "home/getWorkoutSchedule",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get("/mobile/fitness-plan/schedule");
+      return response.data;
+    } catch (error: unknown) {
+      return rejectWithValue(
+        getApiErrorMessage(error, "Failed to load your workout schedule"),
+      );
+    }
+  },
+);
+
+export const updateWorkoutSchedule = createAsyncThunk(
+  "home/updateWorkoutSchedule",
+  async (
+    { days_per_week, weekdays }: { days_per_week: number; weekdays: number[] },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await axiosInstance.put(
+        "/mobile/fitness-plan/schedule",
+        { days_per_week, weekdays },
+      );
+      return response.data;
+    } catch (error: unknown) {
+      return rejectWithValue(
+        getApiErrorMessage(error, "Failed to save your workout days"),
+      );
+    }
+  },
+);
+
+export const getProgressPhotoStatus = createAsyncThunk(
+  "home/getProgressPhotoStatus",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(
+        "/mobile/fitness-plan/progress-photo-status",
+      );
+      return response.data;
+    } catch (error: unknown) {
+      return rejectWithValue(
+        getApiErrorMessage(error, "Failed to load your check-in"),
+      );
+    }
+  },
+);
+
+/**
+ * Uploads a check-in one pose at a time.
+ *
+ * Camera images run several megabytes each; sending all four in one request
+ * overruns PHP's post_max_size and the whole check-in is rejected. One photo
+ * per request keeps every upload small, and an early failure still leaves the
+ * poses that already succeeded saved on the server.
+ */
+export const uploadProgressPhotos = createAsyncThunk(
+  "home/uploadProgressPhotos",
+  async (
+    photos: Partial<Record<ProgressPhotoPose, { uri: string; name: string; type: string }>>,
+    { rejectWithValue },
+  ) => {
+    const entries = Object.entries(photos).filter(([, file]) => Boolean(file)) as [
+      ProgressPhotoPose,
+      { uri: string; name: string; type: string },
+    ][];
+
+    // The last response carries the freshest check-in status.
+    let lastResponse: { data?: { status?: ProgressPhotoStatus } } | null = null;
+
+    for (const [pose, file] of entries) {
+      try {
+        const formData = new FormData();
+        formData.append("image", file as unknown as Blob);
+        formData.append("pose", pose);
+
+        const response = await axiosInstance.post(
+          "/mobile/fitness-plan/progress-photo",
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+        lastResponse = response.data;
+      } catch (error: unknown) {
+        return rejectWithValue(
+          getApiErrorMessage(error, `Failed to upload your ${pose.replace("_", " ")} photo`),
+        );
+      }
+    }
+
+    return lastResponse;
+  },
+);
+
+export const updateProgressPhotoSchedule = createAsyncThunk(
+  "home/updateProgressPhotoSchedule",
+  async (weekday: number | null, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(
+        "/mobile/fitness-plan/progress-photo-schedule",
+        { weekday },
+      );
+      return response.data;
+    } catch (error: unknown) {
+      return rejectWithValue(
+        getApiErrorMessage(error, "Failed to save your check-in day"),
+      );
+    }
+  },
+);
+
+export const getProgressPhotoComparison = createAsyncThunk(
+  "home/getProgressPhotoComparison",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(
+        "/mobile/fitness-plan/progress-photo-comparison",
+      );
+      return response.data;
+    } catch (error: unknown) {
+      return rejectWithValue(
+        getApiErrorMessage(error, "Failed to load your comparison"),
+      );
+    }
+  },
+);
+
 interface HomeState {
   loading: boolean;
   fitnessPlanLoading: boolean;
@@ -205,6 +341,11 @@ interface HomeState {
   fitnessPlan: FitnessPlan | null;
   currentPlan: CurrentPlanData | null;
   currentPlanLoading: boolean;
+  workoutSchedule: WorkoutSchedule | null;
+  workoutScheduleSaving: boolean;
+  progressPhotoStatus: ProgressPhotoStatus | null;
+  progressPhotoComparison: ProgressPhotoComparison | null;
+  progressPhotoUploading: boolean;
 }
 
 const initialState: HomeState = {
@@ -222,6 +363,11 @@ const initialState: HomeState = {
   fitnessPlan: null,
   currentPlan: null,
   currentPlanLoading: false,
+  workoutSchedule: null,
+  workoutScheduleSaving: false,
+  progressPhotoStatus: null,
+  progressPhotoComparison: null,
+  progressPhotoUploading: false,
 };
 
 const homeSlice = createSlice({
@@ -230,6 +376,47 @@ const homeSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+      .addCase(getWorkoutSchedule.fulfilled, (state, action) => {
+        state.workoutSchedule = action.payload?.data ?? action.payload;
+      })
+      .addCase(updateWorkoutSchedule.pending, (state) => {
+        state.workoutScheduleSaving = true;
+        state.error = null;
+      })
+      .addCase(updateWorkoutSchedule.fulfilled, (state, action) => {
+        state.workoutScheduleSaving = false;
+        state.workoutSchedule = action.payload?.data ?? action.payload;
+        // The backend rebuilds the week for the new days on the next fetch.
+        state.fitnessPlan = null;
+      })
+      .addCase(updateWorkoutSchedule.rejected, (state, action) => {
+        state.workoutScheduleSaving = false;
+        state.error = action.payload as string;
+      })
+      .addCase(getProgressPhotoStatus.fulfilled, (state, action) => {
+        state.progressPhotoStatus = action.payload?.data ?? action.payload;
+      })
+      .addCase(uploadProgressPhotos.pending, (state) => {
+        state.progressPhotoUploading = true;
+        state.error = null;
+      })
+      .addCase(uploadProgressPhotos.fulfilled, (state, action) => {
+        state.progressPhotoUploading = false;
+        const status = action.payload?.data?.status;
+        if (status) state.progressPhotoStatus = status;
+      })
+      .addCase(uploadProgressPhotos.rejected, (state, action) => {
+        state.progressPhotoUploading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(updateProgressPhotoSchedule.fulfilled, (state, action) => {
+        state.progressPhotoStatus = action.payload?.data ?? action.payload;
+      })
+      .addCase(getProgressPhotoComparison.fulfilled, (state, action) => {
+        const comparison = action.payload?.data ?? action.payload;
+        state.progressPhotoComparison = comparison;
+        if (comparison?.status) state.progressPhotoStatus = comparison.status;
+      })
       .addCase(getHomepage.pending, (state) => {
         state.loading = !state.homepage;
         state.refreshing = !!state.homepage;

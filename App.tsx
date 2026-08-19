@@ -16,6 +16,7 @@ import { RootState, store, useAppDispatch } from './src/store';
 import QuestionNavigator from './src/navigation/QuestionStack';
 import PlanNavigator from './src/navigation/PlanStack';
 import MainNavigator from './src/navigation/MainStack';
+import OnboardingNavigator from './src/navigation/OnboardingStack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import {useFonts} from 'expo-font';
@@ -23,6 +24,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import {StatusBar} from 'expo-status-bar';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import { hydrateLoginSession } from './src/slice/LoginSlice';
+import { getProfile } from './src/slice/HomeSlice';
 import { setUser } from './src/slice/SignUpSlice';
 import {
   clearStaleSessionOnFreshInstall,
@@ -49,6 +51,9 @@ function AppContent() {
   const profile = useSelector((state: RootState) => state.home.profile);
   const authToken = useSelector((state: RootState) => state.signUp.token);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  // Set once the post-purchase setup has been walked through (or skipped) in
+  // this session, so finishing it does not bounce the user straight back.
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   useEffect(() => {
     const bootstrapAuth = async () => {
@@ -157,10 +162,28 @@ function AppContent() {
     authToken && (hasActivePlan(loginUser) || hasActivePlan(profile)),
   );
 
+  const onboarding = profile?.onboarding;
+  const needsSchedule = Boolean(onboarding?.workout_schedule_required);
+  const needsPhotos = Boolean(onboarding?.progress_photo_required);
+  const needsOnboarding =
+    userHasActivePlan &&
+    !onboardingDismissed &&
+    (needsSchedule || needsPhotos);
+
   return (
     <NavigationContainer>
       {isQuestion ? (
         <QuestionNavigator />
+      ) : needsOnboarding ? (
+        <OnboardingNavigator
+          needsSchedule={needsSchedule}
+          needsPhotos={needsPhotos}
+          onComplete={() => {
+            setOnboardingDismissed(true);
+            // Refresh so the server-side flags match on the next launch.
+            void dispatch(getProfile());
+          }}
+        />
       ) : userHasActivePlan ? (
         <MainNavigator />
       ) : isPlan ? (

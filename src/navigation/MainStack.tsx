@@ -4,8 +4,10 @@ import type { RouteProp } from "@react-navigation/native";
 import {
   NavigatorScreenParams,
   getFocusedRouteNameFromRoute,
+  useNavigation,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 import {
   AboutUsView,
@@ -22,6 +24,8 @@ import {
   PersonalDataView,
   PrivacyPolicyView,
   ProfileView,
+  ProgressPhotoCheckInView,
+  ProgressPhotoComparisonView,
   SubscriptionHistoryView,
   WorkoutSectionView,
   WorkoutSuccessView,
@@ -76,6 +80,8 @@ export type ProfileStackParamList = {
   PersonalDataView: undefined;
   SubscriptionHistoryView: undefined;
   PaymentHistoryView: undefined;
+  ProgressPhotoComparisonView: undefined;
+  ProgressPhotoCheckInView: undefined;
 };
 
 export type MainTabParamList = {
@@ -209,6 +215,33 @@ const WorkoutNavigator = () => (
   </WorkoutStack.Navigator>
 );
 
+/**
+ * Repeat check-ins reached from the profile; the onboarding flow uses the same
+ * screens with its own callbacks.
+ */
+const ProgressPhotoComparisonScreen = () => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+  return (
+    <ProgressPhotoComparisonView
+      onStartCheckIn={() => navigation.navigate("ProgressPhotoCheckInView")}
+    />
+  );
+};
+
+const ProgressPhotoCheckInScreen = () => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+  return (
+    <ProgressPhotoCheckInView
+      onDone={() => navigation.goBack()}
+      onSkip={() => navigation.goBack()}
+    />
+  );
+};
+
 const ProfileNavigator = () => (
   <ProfileStack.Navigator initialRouteName="ProfileView">
     <ProfileStack.Screen
@@ -254,6 +287,16 @@ const ProfileNavigator = () => (
     <ProfileStack.Screen
       name="PaymentHistoryView"
       component={PaymentHistoryView}
+      options={screenOptions}
+    />
+    <ProfileStack.Screen
+      name="ProgressPhotoComparisonView"
+      component={ProgressPhotoComparisonScreen}
+      options={screenOptions}
+    />
+    <ProfileStack.Screen
+      name="ProgressPhotoCheckInView"
+      component={ProgressPhotoCheckInScreen}
       options={screenOptions}
     />
   </ProfileStack.Navigator>

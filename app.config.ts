@@ -49,10 +49,9 @@ export default ({config}: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.cak_rn',
     versionCode: 1,
-    blockedPermissions: [
-      'android.permission.CAMERA',
-      'android.permission.RECORD_AUDIO',
-    ],
+    // CAMERA is needed for progress-photo check-ins. RECORD_AUDIO stays
+    // blocked: expo-image-picker pulls it in for video capture we never use.
+    blockedPermissions: ['android.permission.RECORD_AUDIO'],
     adaptiveIcon: {
       foregroundImage: './assets/images/app-icon.png',
       backgroundColor: '#171717',
@@ -88,7 +87,11 @@ export default ({config}: ConfigContext): ExpoConfig => ({
     [
       'expo-image-picker',
       {
-        photosPermission: 'The app needs access to your photos to let you choose a profile picture.',
+        photosPermission:
+          'Allow CAK Fitness to access your photos so you can upload a profile picture and your progress check-in photos.',
+        cameraPermission:
+          'Allow CAK Fitness to use your camera so you can take your progress check-in photos.',
+        microphonePermission: false,
       }
     ],
     'expo-apple-authentication',

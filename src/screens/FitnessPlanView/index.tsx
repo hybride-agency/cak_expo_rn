@@ -105,6 +105,17 @@ const FitnessPlanView = () => {
       );
     }
 
+    if (activeDay?.is_rest_day) {
+      return (
+        <RestDayCard
+          summary={
+            activeDay.summary ||
+            "Recovery day. Stay active with light movement, hydrate, and sleep well."
+          }
+        />
+      );
+    }
+
     if (sections.length === 0) {
       return <StatusCard message="No workout is scheduled for this day." />;
     }
@@ -189,6 +200,7 @@ const WeekStrip = ({
   <View style={styles.weekStrip}>
     {days.map((item, index) => {
       const isActive = index === selectedIndex;
+      const isRestDay = Boolean(item.is_rest_day);
       const dayLabel = item.day_name?.slice(0, 3) || getWeekdayLabel(item.date);
       const dateNumber =
         item.date?.split("-").pop() || String(item.day_number || index + 1);
@@ -204,15 +216,32 @@ const WeekStrip = ({
             {dayLabel}
           </Text>
           <View
-            style={[styles.dateCircle, isActive && styles.dateCircleActive]}
+            style={[
+              styles.dateCircle,
+              isRestDay && styles.dateCircleRest,
+              isActive && styles.dateCircleActive,
+            ]}
           >
-            <Text style={[styles.dateText, isActive && styles.dateTextActive]}>
+            <Text
+              style={[
+                styles.dateText,
+                isRestDay && !isActive && styles.dateTextRest,
+                isActive && styles.dateTextActive,
+              ]}
+            >
               {dateNumber}
             </Text>
           </View>
         </TouchableOpacity>
       );
     })}
+  </View>
+);
+
+const RestDayCard = ({ summary }: { summary: string }) => (
+  <View style={styles.restCard}>
+    <Text style={styles.restTitle}>Rest day</Text>
+    <Text style={styles.restText}>{summary}</Text>
   </View>
 );
 
@@ -349,8 +378,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dateCircleActive: { backgroundColor: "#171717" },
+  dateCircleRest: { backgroundColor: "#242424" },
   dateText: { color: "#FFF", fontSize: 12, fontFamily: "Raleway-Bold" },
   dateTextActive: { color: ACCENT },
+  dateTextRest: { color: "#6E6E6E" },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -420,6 +451,25 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: "Raleway-Bold",
     marginTop: 2,
+  },
+  restCard: {
+    backgroundColor: "#2A2A2A",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+  },
+  restTitle: {
+    color: ACCENT,
+    fontSize: 18,
+    fontFamily: "Raleway-Bold",
+    marginBottom: 8,
+  },
+  restText: {
+    color: "#BBB",
+    fontSize: 15,
+    fontFamily: "Raleway-Medium",
+    textAlign: "center",
+    lineHeight: 22,
   },
   statusCard: {
     backgroundColor: "#2A2A2A",

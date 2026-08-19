@@ -1,4 +1,4 @@
-import type {HomepageAccess, UserProfile} from './auth';
+import type {HomepageAccess, OnboardingStatus, UserProfile} from './auth';
 import type {WorkoutExercise} from './plans';
 
 export interface ApiItem {
@@ -21,6 +21,9 @@ export interface ApiItem {
   duration_minutes?: number | string;
   minutes?: number | string;
   estimated_minutes?: number | string;
+  rest_seconds?: number | string;
+  rest_label?: string;
+  is_rest_day?: boolean;
   total_estimated_minutes?: number | string;
   day_total_estimated_minutes?: number | string;
   exercise_name?: string;
@@ -35,6 +38,13 @@ export interface ApiItem {
   target_kcal?: number | string;
   kcal?: number | string;
   calories?: number | string;
+  consumed_kcal?: number | string;
+  consumed_protein_g?: number | string;
+  consumed_carbs_g?: number | string;
+  consumed_fat_g?: number | string;
+  target_protein_g?: number | string;
+  target_carbs_g?: number | string;
+  target_fat_g?: number | string;
   completion_percentage?: number | string;
   progress?: ApiItem;
   pricing?: ApiItem;
@@ -103,6 +113,7 @@ export interface ProfileData extends UserProfile {
   current_subscription?: SubscriptionData;
   active_plan?: PlanData;
   homepage_access?: HomepageAccess;
+  onboarding?: OnboardingStatus;
   available_plans?: ApiItem[];
   section?: ApiItem;
   personal_data?: ApiItem;

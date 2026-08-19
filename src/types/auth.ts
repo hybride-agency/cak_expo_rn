@@ -33,6 +33,13 @@ export interface HomepageAccess {
   active_plan_alias?: string;
 }
 
+/** Setup steps still outstanding after a subscription is bought. */
+export interface OnboardingStatus {
+  workout_schedule_required?: boolean;
+  progress_photo_required?: boolean;
+  is_complete?: boolean;
+}
+
 export interface AuthResponseData {
   [key: string]: unknown;
   token?: string | null;

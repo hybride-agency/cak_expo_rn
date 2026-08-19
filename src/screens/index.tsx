@@ -28,3 +28,6 @@ export { default as PersonalDataView } from './PersonalDataView';
 export { default as SubscriptionHistoryView } from './SubscriptionHistoryView';
 export { default as PaymentHistoryView } from './PaymentHistoryView';
 export {default as MealDetailsView} from './MealDetailsView';
+export {default as WorkoutScheduleView} from './WorkoutScheduleView';
+export {default as ProgressPhotoCheckInView} from './ProgressPhotoCheckInView';
+export {default as ProgressPhotoComparisonView} from './ProgressPhotoComparisonView';

@@ -15,6 +15,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import {reloadAppAsync} from 'expo';
 import * as ImagePicker from 'expo-image-picker';
+import {ensureMediaPermission} from '../../utils/mediaPermissions';
 import axiosInstance from '../../axiosConfig';
 
 import type {ProfileStackParamList} from '../../navigation/MainStack';
@@ -172,10 +173,9 @@ const ProfileView = () => {
 
   const handleEditProfilePicture = async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (!permissionResult.granted) {
-        Alert.alert('Permission needed', 'Please grant permission to access your photos to change your profile picture.');
+      // Prompts, and offers a route into system settings when the OS will no
+      // longer ask on our behalf.
+      if (!(await ensureMediaPermission('library'))) {
         return;
       }
 
@@ -277,7 +277,8 @@ const ProfileView = () => {
           <View style={styles.cardSection}>
             <MenuItem label="Personal Data" icon={<PersonalDataIcon />} onPress={() => navigation.navigate('PersonalDataView')} />
             <MenuItem label="Membership information" icon={<MembershipIcon />} onPress={() => navigation.navigate('MembershipView')} />
-            <MenuItem label="Subscription history" icon={<HistoryIcon />} onPress={() => navigation.navigate('SubscriptionHistoryView')} noBorder />
+            <MenuItem label="Subscription history" icon={<HistoryIcon />} onPress={() => navigation.navigate('SubscriptionHistoryView')} />
+            <MenuItem label="Progress photos" icon={<ProgressPhotoIcon />} onPress={() => navigation.navigate('ProgressPhotoComparisonView')} noBorder />
           </View>
 
           <Text style={styles.sectionTitle}>Notification</Text>
@@ -466,6 +467,18 @@ const MembershipIcon = () => (
     <Path d="M13 11h4M13 14h2" stroke={ACCENT} strokeWidth="1.5" strokeLinecap="round" />
   </Svg>
 );
+const ProgressPhotoIcon = () => (
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M4 8a2 2 0 0 1 2-2h1.2l1-1.6A1 1 0 0 1 9 4h6a1 1 0 0 1 .8.4l1 1.6H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"
+      stroke="#FFFFFF"
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+    />
+    <Circle cx="12" cy="12" r="3.2" stroke="#FFFFFF" strokeWidth="1.6" />
+  </Svg>
+);
+
 const HistoryIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Rect x="4" y="4" width="16" height="16" rx="2" stroke={ACCENT} strokeWidth="1.5" />

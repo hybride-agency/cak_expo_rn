@@ -54,6 +54,10 @@ const ACCENT = "#68FE00";
 const BACKGROUND = "#171717";
 const SURFACE = "#232323";
 const MUTED = "#9B9B9B";
+// Macro ring colours: distinct from the accent so the three read apart at a glance.
+const PROTEIN_COLOR = "#68FE00";
+const CARBS_COLOR = "#4FC3F7";
+const FAT_COLOR = "#FFB74D";
 const WATER_STEPS = [150, 250, 300, 500, 1000];
 const FALLBACK_AVATAR = require("../../../assets/images/male.png");
 const FALLBACK_SUBSCRIPTION_IMAGE = require("../../../assets/images/generate.png");
@@ -92,6 +96,8 @@ const HomepageListView = () => {
   } = useAppSelector((state) => state.home);
   const loginUser = useAppSelector((state) => state.login.user);
   const [selectedWaterStep, setSelectedWaterStep] = useState<number>(250);
+  // Measured width of the macro ring row, used to size the rings to fit.
+  const [macroRowWidth, setMacroRowWidth] = useState(0);
 
   const fetchHomeData = useCallback(async () => {
     const profileResult = await dispatch(getProfile());
@@ -270,6 +276,47 @@ const HomepageListView = () => {
   );
   const calorieRemaining = Math.max(calorieGoal - calorieConsumed, 0);
 
+  // Macro rings sit under the calorie ring and track the same day's meals.
+  const macroRings = useMemo(
+    () => [
+      {
+        key: "protein",
+        label: "Protein",
+        color: PROTEIN_COLOR,
+        consumed: firstNumber(
+          calorieSummary?.consumed_protein_g,
+          calorieSummary?.protein_g,
+          0,
+        ),
+        goal: firstNumber(calorieSummary?.target_protein_g, 0),
+      },
+      {
+        key: "carbs",
+        label: "Carbs",
+        color: CARBS_COLOR,
+        consumed: firstNumber(
+          calorieSummary?.consumed_carbs_g,
+          calorieSummary?.carbs_g,
+          0,
+        ),
+        goal: firstNumber(calorieSummary?.target_carbs_g, 0),
+      },
+      {
+        key: "fat",
+        label: "Fat",
+        color: FAT_COLOR,
+        consumed: firstNumber(
+          calorieSummary?.consumed_fat_g,
+          calorieSummary?.fat_g,
+          0,
+        ),
+        goal: firstNumber(calorieSummary?.target_fat_g, 0),
+      },
+    ],
+    [calorieSummary],
+  );
+
+
   const todayWorkout = firstObject(
     workoutProgressSection?.today_next_exercise,
     homepage?.today_workout,
@@ -354,6 +401,12 @@ const HomepageListView = () => {
   const showCalorieSection = hasSubscription && Boolean(mealKcalSection);
   const nutritionTileCount =
     Number(showWaterSection) + Number(showCalorieSection);
+  const showMacroRings =
+    showCalorieSection && macroRings.some((macro) => macro.goal > 0);
+  const macroRingSize = useMemo(
+    () => resolveMacroRingSize(macroRowWidth),
+    [macroRowWidth],
+  );
 
   const onAddWater = async (amount: number) => {
     const nextTotal = waterTotal + amount;
@@ -545,14 +598,39 @@ const HomepageListView = () => {
                 />
               ) : null}
               {showCalorieSection ? (
-                <CalorieRing
-                  consumed={calorieConsumed}
-                  goal={calorieGoal}
-                  remaining={calorieRemaining}
-                  containerStyle={
-                    nutritionTileCount === 1 ? styles.singleStatCard : undefined
-                  }
-                />
+                <View
+                  style={[
+                    styles.calorieColumn,
+                    nutritionTileCount === 1 && styles.singleStatCard,
+                  ]}
+                >
+                  <CalorieRing
+                    consumed={calorieConsumed}
+                    goal={calorieGoal}
+                    remaining={calorieRemaining}
+                  />
+
+                  {/* Macros sit under the calorie ring they belong to. */}
+                  {showMacroRings ? (
+                    <View
+                      style={styles.macroRow}
+                      onLayout={(event) =>
+                        setMacroRowWidth(event.nativeEvent.layout.width)
+                      }
+                    >
+                      {macroRings.map((macro) => (
+                        <MacroRing
+                          key={macro.key}
+                          label={macro.label}
+                          color={macro.color}
+                          consumed={macro.consumed}
+                          goal={macro.goal}
+                          size={macroRingSize}
+                        />
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -957,6 +1035,81 @@ const CalorieRing = ({
         <Text style={styles.ringMeta}>remaining</Text>
         <Text style={styles.ringMeta}>out of {goal}</Text>
       </View>
+    </View>
+  );
+};
+
+const MACRO_RING_GAP = 4;
+const MACRO_RING_MIN_SIZE = 34;
+const MACRO_RING_MAX_SIZE = 52;
+
+/**
+ * Three rings share the calorie ring's column, which is under half the screen.
+ * Sizing them off the measured row keeps them on one line from a 320pt phone
+ * up to a tablet, instead of overflowing at the narrow end.
+ */
+const resolveMacroRingSize = (rowWidth: number) => {
+  if (rowWidth <= 0) return MACRO_RING_MAX_SIZE;
+
+  const available = rowWidth - MACRO_RING_GAP * 2;
+
+  return Math.max(
+    MACRO_RING_MIN_SIZE,
+    Math.min(MACRO_RING_MAX_SIZE, Math.floor(available / 3)),
+  );
+};
+
+const MacroRing = ({
+  label,
+  color,
+  consumed,
+  goal,
+  size,
+}: {
+  label: string;
+  color: string;
+  consumed: number;
+  goal: number;
+  size: number;
+}) => {
+  const strokeWidth = Math.max(4, Math.round(size * 0.11));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.min(consumed / Math.max(goal, 1), 1);
+  const dashOffset = circumference * (1 - progress);
+
+  return (
+    <View style={styles.macroCard}>
+      <View style={styles.macroRingWrap}>
+        <Svg width={size} height={size}>
+          <Circle
+            stroke="#292929"
+            fill="none"
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            strokeWidth={strokeWidth}
+          />
+          <Circle
+            stroke={color}
+            fill="none"
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            rotation="-90"
+            origin={`${size / 2}, ${size / 2}`}
+          />
+        </Svg>
+        <View style={styles.macroRingCenter}>
+          <Text style={styles.macroValue}>{Math.round(consumed)}</Text>
+        </View>
+      </View>
+      <Text style={[styles.macroLabel, { color }]}>{label}</Text>
+      <Text style={styles.macroGoal}>/ {Math.round(goal)}g</Text>
     </View>
   );
 };
@@ -1791,8 +1944,12 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlign: "center",
   },
-  ringCard: {
+  calorieColumn: {
     width: "47%",
+    minWidth: 0,
+  },
+  ringCard: {
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
     minHeight: 178,
@@ -1814,6 +1971,46 @@ const styles = StyleSheet.create({
     color: MUTED,
     fontSize: 10,
     fontFamily: "Raleway-Medium",
+    includeFontPadding: false,
+  },
+  macroRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    width: "100%",
+    gap: MACRO_RING_GAP,
+    marginTop: 4,
+  },
+  macroCard: {
+    flex: 1,
+    alignItems: "center",
+    minWidth: 0,
+  },
+  macroRingWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  macroRingCenter: {
+    position: "absolute",
+    alignItems: "center",
+  },
+  macroValue: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: "Raleway-Bold",
+    includeFontPadding: false,
+  },
+  macroGoal: {
+    color: MUTED,
+    fontSize: 9,
+    fontFamily: "Raleway-Medium",
+    includeFontPadding: false,
+    marginTop: 1,
+  },
+  macroLabel: {
+    marginTop: 6,
+    fontSize: 10,
+    fontFamily: "Raleway-SemiBold",
     includeFontPadding: false,
   },
   quickActionCard: {

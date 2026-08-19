@@ -10,6 +10,9 @@ export interface WorkoutExercise {
   sets?: number | string;
   reps?: number | string;
   rest?: number | string;
+  /** Rest between sets, in seconds. Always between 60 and 120. */
+  rest_seconds?: number;
+  rest_label?: string;
   is_completed?: boolean;
   completed_at?: string | null;
   instruction_text?: string;
@@ -40,12 +43,16 @@ export interface FitnessPlanDay {
   description?: string;
   focus?: string;
   summary?: string;
+  is_rest_day?: boolean;
+  weekday?: number;
   total_estimated_minutes?: number | string;
   next_exercise?: {
     category?: string;
     category_name?: string;
     exercise_name?: string;
     estimated_minutes?: number | string;
+    rest_seconds?: number;
+    rest_label?: string;
   } | null;
   completion_percentage?: number;
   rawSection?: WorkoutSection;
@@ -63,6 +70,7 @@ export interface FitnessPlan {
   program_category?: string;
   program_variant?: string;
   days?: FitnessPlanDay[];
+  schedule?: WorkoutSchedule;
   weekly_progress?: unknown[];
   today_workout?: unknown;
   current_workout?: unknown;
@@ -70,6 +78,56 @@ export interface FitnessPlan {
   current_day_next_exercise?: unknown;
   review?: unknown;
   progress_photo_comparison?: unknown;
+}
+
+export interface WorkoutScheduleOption {
+  weekday: number;
+  label: string;
+  short_label: string;
+  is_selected: boolean;
+}
+
+/** Which weekdays the user trains on. Programs run 2 or 3 days a week. */
+export interface WorkoutSchedule {
+  days_per_week: number;
+  min_days_per_week: number;
+  max_days_per_week: number;
+  weekdays: number[];
+  weekday_labels: string[];
+  rest_weekdays: number[];
+  has_selected_schedule: boolean;
+  options: WorkoutScheduleOption[];
+}
+
+export type ProgressPhotoPose = 'front' | 'back' | 'left_side' | 'right_side';
+
+export interface ProgressPhotoStatus {
+  poses: ProgressPhotoPose[];
+  pose_labels: Record<ProgressPhotoPose, string>;
+  check_in_weekday: number | null;
+  check_in_weekday_label: string | null;
+  next_check_in_date: string | null;
+  is_due_today: boolean;
+  has_completed_onboarding: boolean;
+  check_in_count: number;
+  latest_check_in: ProgressPhotoCheckIn | null;
+}
+
+export interface ProgressPhotoCheckIn {
+  date: string;
+  photos: Partial<Record<ProgressPhotoPose, string>>;
+}
+
+export interface ProgressPhotoComparison {
+  available: boolean;
+  latest: ProgressPhotoCheckIn | null;
+  baseline: ProgressPhotoCheckIn | null;
+  poses: {
+    pose: ProgressPhotoPose;
+    latest_image_url: string | null;
+    baseline_image_url: string | null;
+  }[];
+  status?: ProgressPhotoStatus;
 }
 
 export interface MealEntry {
@@ -101,6 +159,10 @@ export interface MealPlanDay {
   date?: string;
   day_name?: string;
   day_label?: string;
+  target_kcal?: number | string;
+  consumed_kcal?: number | string;
+  /** Rest days carry a lower calorie target with protein held high. */
+  is_training_day?: boolean;
   meals?: MealEntry[];
 }
 

@@ -98,6 +98,15 @@ const processErrorQueue = () => {
   });
 };
 
+/** IANA timezone of the device, e.g. "Asia/Tokyo". */
+const getDeviceTimezone = (): string | null => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+};
+
 // Create axios instance with better configuration
 const axiosInstance = create({
   baseURL: environment.apiBaseUrl,
@@ -117,6 +126,14 @@ axiosInstance.interceptors.request.use(
 
     if (user && user.token) {
       config.headers.Authorization = 'Bearer ' + user.token;
+    }
+
+    // The backend draws day boundaries (today's meals, the current week, photo
+    // check-ins) in the user's own timezone, so tell it where we are. Sending
+    // it on every request means travelling updates it on the next call.
+    const timezone = getDeviceTimezone();
+    if (timezone) {
+      config.headers['X-Timezone'] = timezone;
     }
 
     // Get language from realm storage and add to headers

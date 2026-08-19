@@ -107,7 +107,25 @@ const MealPlannerView = () => {
             onSelect={setSelectedDayIndex} 
           />
 
-          <Text style={styles.dateTitle}>{formattedDate}</Text>
+          <View style={styles.dateRow}>
+            <Text style={styles.dateTitle}>{formattedDate}</Text>
+            {activeDay?.is_training_day === false ? (
+              <View style={styles.restBadge}>
+                <Text style={styles.restBadgeText}>REST DAY</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {activeDay?.is_training_day === false ? (
+            <Text style={styles.restNote}>
+              Lighter on calories because you&apos;re not training today, with
+              protein kept high to help you recover.
+            </Text>
+          ) : null}
+
+          {activeDay?.is_training_day !== false ? (
+            <View style={styles.dateSpacer} />
+          ) : null}
 
           {loading && !mealPlan ? (
             <ActivityIndicator color={ACCENT} style={{marginTop: 50}} />
@@ -349,11 +367,38 @@ const styles = StyleSheet.create({
   dateTextActive: {
     color: ACCENT,
   },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
+  },
   dateTitle: {
-    color: '#FFF', 
-    fontSize: 24, 
-    fontFamily: 'Raleway-Bold', 
-    marginBottom: 24
+    color: '#FFF',
+    fontSize: 24,
+    fontFamily: 'Raleway-Bold',
+    flexShrink: 1,
+  },
+  restBadge: {
+    backgroundColor: '#2A2A2A',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  restBadgeText: {
+    color: ACCENT,
+    fontSize: 10,
+    fontFamily: 'Raleway-Bold',
+    letterSpacing: 0.5,
+  },
+  dateSpacer: {height: 16},
+  restNote: {
+    color: '#9B9B9B',
+    fontSize: 13,
+    fontFamily: 'Raleway-Medium',
+    lineHeight: 19,
+    marginBottom: 20,
   },
   mealBlock: {
     marginBottom: 32

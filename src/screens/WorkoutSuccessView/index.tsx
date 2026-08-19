@@ -10,6 +10,7 @@ import Svg, {Path, Circle} from 'react-native-svg';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NavigationProp, RouteProp} from '@react-navigation/native';
 import type {MainStackParamList, WorkoutFlowParamList} from '../../navigation/MainStack';
+import {getRestLabel} from '../../utils/restTime';
 
 const ACCENT = '#68FE00';
 const BACKGROUND = '#171717';
@@ -65,7 +66,7 @@ const WorkoutSuccessView = () => {
             />
             <StatCard
               icon="time"
-              label={exercise.estimated_minutes ? `${exercise.estimated_minutes} mins` : '— mins'}
+              label={`${getRestLabel(exercise)} rest`}
             />
           </View>
 

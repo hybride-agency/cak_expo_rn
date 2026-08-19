@@ -16,6 +16,7 @@ import type {VideoSource} from 'expo-video';
 
 import {getHomepage, updateExerciseCompletion} from '../../slice/HomeSlice';
 import {useAppDispatch} from '../../store';
+import {getRestLabel} from '../../utils/restTime';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NavigationProp, RouteProp} from '@react-navigation/native';
 import type {
@@ -208,7 +209,7 @@ const ExercisePlayerView = () => {
               />
             </Svg>
             <Text style={styles.durationText}>
-              {exercise.estimated_minutes || '30'} mins
+              {getRestLabel(exercise)} rest
             </Text>
           </View>
           <TouchableOpacity onPress={onFinish} activeOpacity={0.8} style={styles.finishButton}>
