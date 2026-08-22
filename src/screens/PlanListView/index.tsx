@@ -89,7 +89,7 @@ const PlanListView = () => {
 
       {hasSectionImage ? (
         <View style={styles.imageContainer}>
-          <Image source={{ uri: section.image_url }} style={styles.image} />
+          <Image source={{ uri: section.image_url }} style={styles.image} resizeMode="cover" />
         </View>
       ) : null}
 
@@ -97,6 +97,7 @@ const PlanListView = () => {
         <Image
           source={require('../../../assets/images/planOverlay.png')}
           style={styles.image}
+          resizeMode="stretch"
         />
       </View>
 
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: '50%',
+    height: '100%',
   },
   titleContainer: {
     alignItems: 'center',

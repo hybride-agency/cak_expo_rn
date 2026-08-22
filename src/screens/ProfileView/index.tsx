@@ -449,11 +449,11 @@ const ProgressPhotoIcon = () => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
     <Path
       d="M4 8a2 2 0 0 1 2-2h1.2l1-1.6A1 1 0 0 1 9 4h6a1 1 0 0 1 .8.4l1 1.6H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"
-      stroke="#FFFFFF"
+      stroke={ACCENT}
       strokeWidth="1.6"
       strokeLinejoin="round"
     />
-    <Circle cx="12" cy="12" r="3.2" stroke="#FFFFFF" strokeWidth="1.6" />
+    <Circle cx="12" cy="12" r="3.2" stroke={ACCENT} strokeWidth="1.6" />
   </Svg>
 );
 
