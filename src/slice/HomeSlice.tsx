@@ -162,13 +162,22 @@ export const updateExerciseCompletion = createAsyncThunk(
     {
       userWorkoutExerciseId,
       is_completed,
-    }: { userWorkoutExerciseId: number; is_completed: boolean },
+      performed_reps,
+      weight_used,
+      weight_unit,
+    }: {
+      userWorkoutExerciseId: number;
+      is_completed: boolean;
+      performed_reps?: number;
+      weight_used?: number;
+      weight_unit?: 'kg' | 'lb';
+    },
     { rejectWithValue },
   ) => {
     try {
       const response = await axiosInstance.put(
         `/mobile/fitness-plan/exercises/${userWorkoutExerciseId}/completion`,
-        { is_completed },
+        {is_completed, performed_reps, weight_used, weight_unit},
       );
       return response.data;
     } catch (error: unknown) {
@@ -182,11 +191,12 @@ export const updateExerciseCompletion = createAsyncThunk(
 export const submitWeeklyReview = createAsyncThunk(
   "home/submitWeeklyReview",
   async (
-    { rating, skip }: { rating?: number; skip?: boolean },
+    {workoutDayId, rating, skip}: {workoutDayId: number; rating?: number; skip?: boolean},
     { rejectWithValue },
   ) => {
     try {
       const response = await axiosInstance.post("/mobile/fitness-plan/review", {
+        workout_day_id: workoutDayId,
         ...(skip ? { skip: true } : { rating }),
       });
       return response.data;
@@ -529,7 +539,7 @@ const homeSlice = createSlice({
         }
       })
       .addCase(updateExerciseCompletion.fulfilled, (state, action) => {
-        const { id, is_completed, kcal_burned } =
+        const {id, is_completed, kcal_burned, performed_reps, weight_used, weight_unit} =
           action.payload?.data ?? action.payload;
 
         if (state.fitnessPlan && state.fitnessPlan.days) {
@@ -541,6 +551,9 @@ const homeSlice = createSlice({
                     if (ex.id === id) {
                       ex.is_completed = is_completed;
                       ex.kcal_burned = kcal_burned;
+                      ex.performed_reps = performed_reps;
+                      ex.weight_used = weight_used;
+                      ex.weight_unit = weight_unit;
                     }
                   });
                 }

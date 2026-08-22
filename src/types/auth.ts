@@ -13,6 +13,7 @@ export interface UserProfile {
   weight_kg?: number | string;
   gender?: string;
   role?: string;
+  account_status?: 'onboarding' | 'pending_activation' | 'active' | 'suspended' | string;
   test_completed?: boolean;
   has_active_plan?: boolean;
   has_password?: boolean;
@@ -31,6 +32,9 @@ export interface HomepageAccess {
   can_access_homepage?: boolean;
   blocking_codes?: string[];
   active_plan_alias?: string;
+  account_status?: string;
+  plan_provisioning_status?: string | null;
+  activated_at?: string | null;
 }
 
 /** Setup steps still outstanding after a subscription is bought. */

@@ -389,7 +389,13 @@ const HomepageListView = () => {
   const normalizedPlanAlias = normalizePlanAlias(activePlanAlias);
   const hasWorkoutAccess =
     homepage?.plan_info?.has_workout ||
-    ["starter", "master", "starter+meal", "master+meal"].includes(
+    [
+      "starter",
+      "master",
+      "starter+meal",
+      "master+meal",
+      "90-day-transformation",
+    ].includes(
       normalizedPlanAlias,
     );
   const showWorkoutSection =

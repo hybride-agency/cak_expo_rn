@@ -34,6 +34,25 @@ export const createWhishCheckout = createAsyncThunk<
   }
 });
 
+export const requestPayInGym = createAsyncThunk<
+  WhishPayment,
+  {plan_id: number; plan_pricing_id: number},
+  {rejectValue: CheckoutRejection}
+>('payment/requestPayInGym', async ({plan_id, plan_pricing_id}, {rejectWithValue}) => {
+  try {
+    const response = await axiosInstance.post<WhishCheckoutResponse>(
+      '/mobile/payments/pay-in-gym',
+      {plan_id, plan_pricing_id},
+    );
+    return response.data.data.payment;
+  } catch (error: unknown) {
+    return rejectWithValue({
+      message: getApiErrorMessage(error, 'Could not submit the pay-at-gym request'),
+      paymentId: null,
+    });
+  }
+});
+
 export const createWhishRenewal = createAsyncThunk<
   WhishPayment,
   {userPlanId: number; plan_pricing_id?: number; idempotencyKey: string},
@@ -133,6 +152,18 @@ const paymentSlice = createSlice({
       .addCase(createWhishCheckout.rejected, (state, action) => {
         state.checkoutLoading = false;
         state.checkoutError = action.payload?.message ?? 'Failed to start checkout';
+      })
+      .addCase(requestPayInGym.pending, state => {
+        state.checkoutLoading = true;
+        state.checkoutError = null;
+      })
+      .addCase(requestPayInGym.fulfilled, (state, action) => {
+        state.checkoutLoading = false;
+        state.currentPayment = action.payload;
+      })
+      .addCase(requestPayInGym.rejected, (state, action) => {
+        state.checkoutLoading = false;
+        state.checkoutError = action.payload?.message ?? 'Could not submit the pay-at-gym request';
       })
       .addCase(createWhishRenewal.pending, state => {
         state.checkoutLoading = true;

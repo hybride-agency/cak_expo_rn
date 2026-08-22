@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   FlatList,
   ScrollView,
+  Modal,
 } from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { PlanRulesCmp, PrimaryButtonCmp, WhishPaymentOverlay } from '../../components';
@@ -19,6 +20,8 @@ import { PlanPrice } from '../../../global';
 import Small_Check_Logo_SVG from '../../../assets/SVG/Small_Check_Logo_SVG';
 import Arrow_Back_Logo_SVG from '../../../assets/SVG/Arrow_Back_Logo_SVG';
 import { useWhishCheckout } from '../../hooks/useWhishCheckout';
+import {requestPayInGym as requestPayInGymAction} from '../../slice/PaymentSlice';
+import {refreshAuthenticatedSession} from '../../utils/completeAuthSession';
 
 const PlanView = () => {
   const navigation = useNavigation();
@@ -38,6 +41,9 @@ const PlanView = () => {
   const [planPrice, setPlanPrice] = useState<PlanPrice | null>(null);
   const [arrayFeatures, setArrayFeatures] = useState<string[]>([]);
   const [selectedPricingId, setSelectedPricingId] = useState<number | null>(null);
+  const [paymentMethodVisible, setPaymentMethodVisible] = useState(false);
+  const [gymRequestLoading, setGymRequestLoading] = useState(false);
+  const [gymRequestError, setGymRequestError] = useState<string | null>(null);
 
   const {
     status: checkoutStatus,
@@ -79,7 +85,27 @@ const PlanView = () => {
       return;
     }
 
+    setPaymentMethodVisible(false);
     await startPurchase(planPrice.id, pricing.id);
+  };
+
+  const handlePayAtGym = async () => {
+    const pricing = planPrice?.pricings.find(item => item.id === selectedPricingId);
+    if (!planPrice || !pricing || gymRequestLoading) return;
+    setGymRequestError(null);
+    setGymRequestLoading(true);
+    const result = await dispatch(requestPayInGymAction({
+      plan_id: planPrice.id,
+      plan_pricing_id: pricing.id,
+    }));
+    if (!requestPayInGymAction.fulfilled.match(result)) {
+      setGymRequestError(result.payload?.message ?? 'Could not submit the pay-at-gym request.');
+      setGymRequestLoading(false);
+      return;
+    }
+    setPaymentMethodVisible(false);
+    await refreshAuthenticatedSession(dispatch);
+    setGymRequestLoading(false);
   };
 
   const handleCheckoutDismiss = () => {
@@ -233,18 +259,56 @@ const PlanView = () => {
               <View style={styles.buttonPrimaryContainer}>
                 <PrimaryButtonCmp
                   text={isUpgrade ? 'Upgrade Plan' : 'Buy Plan'}
-                  loading={purchaseLoading}
-                  disabled={purchaseLoading || !selectedPricingId}
-                  onPress={handlePurchase}
+                  loading={purchaseLoading || gymRequestLoading}
+                  disabled={purchaseLoading || gymRequestLoading || !selectedPricingId}
+                  onPress={() => setPaymentMethodVisible(true)}
                 />
                 <Text style={styles.paymentProviderText}>
-                  Secure membership payment via Whish Money
+                  Choose Whish checkout or pay at the gym
                 </Text>
               </View>
             </View>
           </ScrollView>
         </>
       )}
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={paymentMethodVisible}
+        onRequestClose={() => !gymRequestLoading && setPaymentMethodVisible(false)}>
+        <View style={styles.paymentModalBackdrop}>
+          <View style={styles.paymentModalCard}>
+            <Text style={styles.paymentModalTitle}>How would you like to pay?</Text>
+            <Text style={styles.paymentModalDescription}>
+              Pay online now, or ask the gym team to confirm your in-person payment later.
+            </Text>
+            {gymRequestError ? <Text style={styles.paymentModalError}>{gymRequestError}</Text> : null}
+            <TouchableOpacity
+              disabled={gymRequestLoading}
+              onPress={() => void handlePurchase()}
+              style={styles.whishMethodButton}>
+              <Text style={styles.whishMethodTitle}>Pay with Whish</Text>
+              <Text style={styles.whishMethodDescription}>Open secure online checkout</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={gymRequestLoading}
+              onPress={() => void handlePayAtGym()}
+              style={styles.gymMethodButton}>
+              {gymRequestLoading ? <ActivityIndicator color="#68FE00" /> : <>
+                <Text style={styles.gymMethodTitle}>Pay at the gym</Text>
+                <Text style={styles.gymMethodDescription}>Your account waits until an admin confirms payment</Text>
+              </>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={gymRequestLoading}
+              onPress={() => setPaymentMethodVisible(false)}
+              style={styles.paymentModalCancel}>
+              <Text style={styles.paymentModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <WhishPaymentOverlay
         status={checkoutStatus}
@@ -320,6 +384,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
+  paymentModalBackdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.76)', justifyContent: 'flex-end', padding: 18},
+  paymentModalCard: {backgroundColor: '#292929', borderRadius: 26, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'},
+  paymentModalTitle: {color: '#FFF', fontSize: 23, fontFamily: 'Raleway-Black'},
+  paymentModalDescription: {color: '#B5B5B5', fontSize: 14, lineHeight: 21, fontFamily: 'Raleway-Medium', marginTop: 8, marginBottom: 18},
+  paymentModalError: {color: '#FF8A8A', fontSize: 13, fontFamily: 'Raleway-Medium', marginBottom: 12},
+  whishMethodButton: {backgroundColor: '#68FE00', borderRadius: 17, padding: 16, marginBottom: 10},
+  whishMethodTitle: {color: '#171717', fontSize: 16, fontFamily: 'Raleway-Black'},
+  whishMethodDescription: {color: 'rgba(23,23,23,0.68)', fontSize: 12, fontFamily: 'Raleway-Medium', marginTop: 3},
+  gymMethodButton: {minHeight: 72, borderRadius: 17, borderWidth: 1, borderColor: '#4A4A4A', padding: 16, justifyContent: 'center'},
+  gymMethodTitle: {color: '#FFF', fontSize: 16, fontFamily: 'Raleway-Black'},
+  gymMethodDescription: {color: '#A7A7A7', fontSize: 12, fontFamily: 'Raleway-Medium', marginTop: 3},
+  paymentModalCancel: {alignItems: 'center', paddingTop: 18, paddingBottom: 4},
+  paymentModalCancelText: {color: '#A7A7A7', fontSize: 14, fontFamily: 'Raleway-Bold'},
   loadingContainer: {
     paddingTop: 67,
   },

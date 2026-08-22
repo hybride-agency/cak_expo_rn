@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -60,6 +61,15 @@ const ExercisePlayerView = () => {
   const hasRenderedFirstFrame = renderedVideoUrl === exercise.video_url;
   const isBuffering = showVideo && playerState.status === 'loading';
   const hasPlaybackError = showVideo && playerState.status === 'error';
+  const [performedReps, setPerformedReps] = React.useState('');
+  const [weightUsed, setWeightUsed] = React.useState(
+    exercise.weight_used == null ? '' : String(exercise.weight_used),
+  );
+  const [weightUnit, setWeightUnit] = React.useState<'kg' | 'lb'>(
+    exercise.weight_unit === 'lb' ? 'lb' : 'kg',
+  );
+  const [completionError, setCompletionError] = React.useState<string | null>(null);
+  const [isCompleting, setIsCompleting] = React.useState(false);
 
   const steps = useMemo(
     () => buildExerciseInstructionSteps(exercise),
@@ -67,20 +77,44 @@ const ExercisePlayerView = () => {
   );
 
   const onFinish = async () => {
-    let completedExercise = {...exercise, is_completed: true};
-
-    if (exercise.id) {
-      const response = await dispatch(
-        updateExerciseCompletion({
-          userWorkoutExerciseId: exercise.id,
-          is_completed: true,
-        }),
-      ).unwrap();
-      const updatedExercise = response?.data ?? response;
-      completedExercise = {...completedExercise, ...updatedExercise};
+    const reps = Number(performedReps);
+    const weight = weightUsed.trim() === '' ? undefined : Number(weightUsed);
+    if (!Number.isInteger(reps) || reps < 1) {
+      setCompletionError('Enter the number of reps you completed.');
+      return;
     }
-    dispatch(getHomepage());
-    navigation.navigate('WorkoutSuccessView', {exercise: completedExercise});
+    if (weight !== undefined && (!Number.isFinite(weight) || weight < 0)) {
+      setCompletionError('Enter a valid weight or leave it blank.');
+      return;
+    }
+
+    setCompletionError(null);
+    setIsCompleting(true);
+    let completedExercise = {...exercise, is_completed: true};
+    try {
+      if (exercise.id) {
+        const response = await dispatch(
+          updateExerciseCompletion({
+            userWorkoutExerciseId: exercise.id,
+            is_completed: true,
+            performed_reps: reps,
+            weight_used: weight,
+            weight_unit: weightUnit,
+          }),
+        ).unwrap();
+        const updatedExercise = response?.data ?? response;
+        completedExercise = {...completedExercise, ...updatedExercise};
+      }
+      dispatch(getHomepage());
+      navigation.navigate('WorkoutSuccessView', {
+        exercise: completedExercise,
+        workoutCompleted: completedExercise.workout_completed === true,
+      });
+    } catch (error: unknown) {
+      setCompletionError(typeof error === 'string' ? error : 'Could not save this exercise. Try again.');
+    } finally {
+      setIsCompleting(false);
+    }
   };
 
   const retryVideo = async () => {
@@ -198,23 +232,52 @@ const ExercisePlayerView = () => {
         </ScrollView>
 
         <View style={styles.footer}>
-          <View style={styles.durationBadge}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Circle cx="12" cy="12" r="10" stroke={ACCENT} strokeWidth="2" />
-              <Path
-                d="M12 7V12L15 15"
-                stroke={ACCENT}
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </Svg>
-            <Text style={styles.durationText}>
-              {getRestLabel(exercise)} rest
-            </Text>
+          <View style={styles.performanceRow}>
+            <TextInput
+              accessibilityLabel="Completed reps"
+              keyboardType="number-pad"
+              value={performedReps}
+              onChangeText={setPerformedReps}
+              placeholder="Reps"
+              placeholderTextColor="#858585"
+              style={styles.performanceInput}
+            />
+            <TextInput
+              accessibilityLabel="Weight used"
+              keyboardType="decimal-pad"
+              value={weightUsed}
+              onChangeText={setWeightUsed}
+              placeholder="Weight (optional)"
+              placeholderTextColor="#858585"
+              style={styles.performanceInput}
+            />
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`Weight unit ${weightUnit}`}
+              onPress={() => setWeightUnit(current => current === 'kg' ? 'lb' : 'kg')}
+              style={styles.unitButton}>
+              <Text style={styles.unitText}>{weightUnit}</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={onFinish} activeOpacity={0.8} style={styles.finishButton}>
-            <Text style={styles.finishButtonText}>Complete</Text>
-          </TouchableOpacity>
+          {completionError ? <Text style={styles.completionError}>{completionError}</Text> : null}
+          <View style={styles.actionRow}>
+            <View style={styles.durationBadge}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Circle cx="12" cy="12" r="10" stroke={ACCENT} strokeWidth="2" />
+                <Path d="M12 7V12L15 15" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" />
+              </Svg>
+              <Text style={styles.durationText}>{getRestLabel(exercise)} rest</Text>
+            </View>
+            <TouchableOpacity
+              disabled={isCompleting}
+              onPress={onFinish}
+              activeOpacity={0.8}
+              style={[styles.finishButton, isCompleting && styles.finishButtonDisabled]}>
+              {isCompleting
+                ? <ActivityIndicator color={BACKGROUND} />
+                : <Text style={styles.finishButtonText}>Complete</Text>}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -271,10 +334,28 @@ const styles = StyleSheet.create({
   stepCopy: {flex: 1},
   stepTitle: {color: '#FFF', fontSize: 16, fontFamily: 'Raleway-Bold'},
   stepText: {color: '#C8C8C8', fontSize: 14, fontFamily: 'Raleway-Medium', lineHeight: 21, marginTop: 8},
-  footer: {paddingTop: 14, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#2A2A2A'},
+  footer: {paddingTop: 12, paddingBottom: 8, gap: 9, borderTopWidth: 1, borderTopColor: '#2A2A2A'},
+  performanceRow: {flexDirection: 'row', gap: 8},
+  performanceInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#444',
+    backgroundColor: '#292929',
+    color: '#FFF',
+    paddingHorizontal: 12,
+    fontFamily: 'Raleway-Medium',
+  },
+  unitButton: {width: 52, height: 48, borderRadius: 14, borderWidth: 1, borderColor: '#444', backgroundColor: '#292929', alignItems: 'center', justifyContent: 'center'},
+  unitText: {color: '#FFF', fontSize: 14, fontFamily: 'Raleway-Bold'},
+  completionError: {color: '#FF7B7B', fontSize: 12, fontFamily: 'Raleway-Medium'},
+  actionRow: {flexDirection: 'row', alignItems: 'center', gap: 12},
   durationBadge: {height: 50, paddingHorizontal: 16, borderRadius: 25, borderWidth: 1, borderColor: ACCENT, flexDirection: 'row', alignItems: 'center', gap: 8},
   durationText: {color: '#FFF', fontSize: 14, fontFamily: 'Raleway-Bold'},
   finishButton: {height: 50, flex: 1, borderRadius: 25, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center'},
+  finishButtonDisabled: {opacity: 0.65},
   finishButtonText: {color: BACKGROUND, fontSize: 16, fontFamily: 'Raleway-Bold'},
 });
 

@@ -20,8 +20,8 @@ const SuccessView = () => {
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Congratulations!</Text>
             <Text style={styles.description}>
-              Now you have unlimited access to all workouts, A confirmation
-              email has been sent to Jho****@gmail.com
+              Your payment is confirmed. A CAK administrator is now reviewing
+              and preparing your personalized 90-day plan.
             </Text>
             <View style={styles.buttonContainer}>
           <ThirdButtonCmp text="Close" onPress={() => {

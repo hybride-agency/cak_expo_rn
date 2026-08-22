@@ -36,6 +36,7 @@ import { resumePendingWhishPayment } from './src/utils/resumePendingWhishPayment
 import { registerForPushNotifications } from './src/utils/pushNotifications';
 import { isWhishPaymentRedirect } from './src/utils/whishRedirect';
 import {refreshAuthenticatedSession} from './src/utils/completeAuthSession';
+import ActivationWaitView from './src/screens/ActivationWaitView';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -169,6 +170,16 @@ function AppContent() {
     userHasActivePlan &&
     !onboardingDismissed &&
     (needsSchedule || needsPhotos);
+  const isPendingActivation = hasBlockingCode(profile, 'pending_activation')
+    || hasBlockingCode(loginUser, 'pending_activation')
+    || hasBlockingCode(profile, 'pending_gym_payment')
+    || hasBlockingCode(loginUser, 'pending_gym_payment');
+  const isPendingGymPayment = hasBlockingCode(profile, 'pending_gym_payment')
+    || hasBlockingCode(loginUser, 'pending_gym_payment');
+
+  if (isPendingActivation) {
+    return <ActivationWaitView awaitingGymPayment={isPendingGymPayment} />;
+  }
 
   return (
     <NavigationContainer>
@@ -281,3 +292,10 @@ const asRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null
     ? (value as Record<string, unknown>)
     : null;
+
+const hasBlockingCode = (value: unknown, code: string): boolean => {
+  const root = asRecord(value);
+  const data = asRecord(root?.data);
+  const access = asRecord(root?.homepage_access) ?? asRecord(data?.homepage_access);
+  return Array.isArray(access?.blocking_codes) && access.blocking_codes.includes(code);
+};

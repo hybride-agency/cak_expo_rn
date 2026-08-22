@@ -9,12 +9,10 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Path} from 'react-native-svg';
 
-import {getHomepage, updateExerciseCompletion} from '../../slice/HomeSlice';
-import {useAppDispatch, useAppSelector} from '../../store';
+import {useAppSelector} from '../../store';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NavigationProp, RouteProp} from '@react-navigation/native';
 import type {MainStackParamList, WorkoutFlowParamList} from '../../navigation/MainStack';
-import type {WorkoutExercise} from '../../types/plans';
 
 const ACCENT = '#8FFF19';
 const BACKGROUND = '#171717';
@@ -23,7 +21,6 @@ const WorkoutSectionView = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<WorkoutFlowParamList, 'WorkoutSectionView'>>();
   const {section, dayName} = route.params;
-  const dispatch = useAppDispatch();
   const {fitnessPlan} = useAppSelector(state => state.home);
   const hasVideoAccess = fitnessPlan?.has_video_access === true;
 
@@ -38,16 +35,6 @@ const WorkoutSectionView = () => {
   }, [fitnessPlan, section]);
 
   const exercises = activeSection?.exercises || [];
-
-  const toggleCompletion = async (exercise: WorkoutExercise) => {
-    const nextStatus = !exercise.is_completed;
-    await dispatch(updateExerciseCompletion({
-      userWorkoutExerciseId: exercise.id,
-      is_completed: nextStatus
-    }));
-    // Refresh homepage to update progress bars
-    dispatch(getHomepage());
-  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -80,8 +67,7 @@ const WorkoutSectionView = () => {
                 <Text style={styles.exerciseMeta}>{ex.sets} Sets | {ex.reps} Reps</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                onPress={() => toggleCompletion(ex)}
+              <View
                 style={[styles.checkbox, ex.is_completed && styles.checkboxActive]}
               >
                 {ex.is_completed && (
@@ -89,7 +75,7 @@ const WorkoutSectionView = () => {
                     <Path d="M20 6L9 17L4 12" stroke={BACKGROUND} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                 )}
-              </TouchableOpacity>
+              </View>
             </View>
           ))}
         </ScrollView>

@@ -9,6 +9,11 @@ export interface WorkoutExercise {
   normalized_name?: string;
   sets?: number | string;
   reps?: number | string;
+  performed_reps?: number | string | null;
+  weight_used?: number | string | null;
+  weight_unit?: 'kg' | 'lb' | string | null;
+  workout_day_id?: number;
+  workout_completed?: boolean;
   rest?: number | string;
   /** Rest between sets, in seconds. Always between 60 and 120. */
   rest_seconds?: number;
@@ -142,6 +147,9 @@ export interface MealEntry {
   calories?: number | string;
   calories_kcal?: number | string;
   protein_g?: number | string;
+  protein_source?: string | null;
+  protein_portion_g?: number | string | null;
+  meal_template_id?: number | null;
   protein?: number | string;
   carbs_g?: number | string;
   carbs?: number | string;

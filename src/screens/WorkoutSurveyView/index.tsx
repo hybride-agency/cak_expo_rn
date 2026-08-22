@@ -10,27 +10,19 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Path} from 'react-native-svg';
 
 import {getHomepage, submitWeeklyReview} from '../../slice/HomeSlice';
-import {useAppDispatch, useAppSelector} from '../../store';
+import {useAppDispatch} from '../../store';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NavigationProp, RouteProp} from '@react-navigation/native';
 import type {MainStackParamList, WorkoutFlowParamList} from '../../navigation/MainStack';
-import type {WorkoutExercise} from '../../types/plans';
 
 const ACCENT = '#68FE00';
 const BACKGROUND = '#171717';
 
-type ExerciseRoute = {
-  exercise: WorkoutExercise;
-  sectionName?: string;
-  hasVideoAccess: boolean;
-};
-
 const WorkoutSurveyView = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<WorkoutFlowParamList, 'WorkoutSurveyView'>>();
-  const {currentExerciseId} = route.params;
+  const {workoutDayId} = route.params;
   const dispatch = useAppDispatch();
-  const {fitnessPlan} = useAppSelector(state => state.home);
   const [rating, setRating] = React.useState(4);
   const [loading, setLoading] = React.useState(false);
 
@@ -70,64 +62,13 @@ const WorkoutSurveyView = () => {
     });
   };
 
-  const navigateToNextExercise = (next: ExerciseRoute) => {
-    const routeNames = navigation.getState?.()?.routeNames || [];
-
-    if (routeNames.includes('FitnessPlanView')) {
-      navigation.reset({
-        index: 1,
-        routes: [
-          {name: 'FitnessPlanView'},
-          {name: 'ExercisePlayerView', params: next},
-        ],
-      });
-      return;
-    }
-
-    resetToCurrentStackRoot();
-    navigation.getParent?.()?.navigate('WorkoutTab', {
-      screen: 'ExercisePlayerView',
-      params: next,
-    });
-  };
-
-  const findNextExercise = () => {
-    if (!fitnessPlan?.days) return null;
-    
-    // Flatten all exercises into a single list
-    const allExercises: ExerciseRoute[] = [];
-    fitnessPlan.days.forEach(day => {
-      day.sections?.forEach(section => {
-        section.exercises?.forEach(ex => {
-          allExercises.push({
-            exercise: ex,
-            sectionName: section.section_name,
-            hasVideoAccess: fitnessPlan.has_video_access === true,
-          });
-        });
-      });
-    });
-
-    const currentIndex = allExercises.findIndex(item => item.exercise.id === currentExerciseId);
-    if (currentIndex !== -1 && currentIndex < allExercises.length - 1) {
-      return allExercises[currentIndex + 1];
-    }
-    
-    return null;
-  };
-
   const handleComplete = async (skip = false) => {
     setLoading(true);
     try {
-      await dispatch(submitWeeklyReview({rating, skip}));
+      await dispatch(submitWeeklyReview({workoutDayId, rating, skip}));
       dispatch(getHomepage());
       
-      const next = findNextExercise();
-      if (next) {
-        navigateToNextExercise(next);
-      } else {
-        navigateHome();
-      }
+      navigateHome();
     } catch (e) {
       console.error(e);
       navigateHome();

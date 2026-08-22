@@ -50,8 +50,8 @@ export type WorkoutFlowParamList = {
     sectionName?: string;
     hasVideoAccess: boolean;
   };
-  WorkoutSuccessView: { exercise: WorkoutExercise };
-  WorkoutSurveyView: { currentExerciseId?: number };
+  WorkoutSuccessView: {exercise: WorkoutExercise; workoutCompleted: boolean};
+  WorkoutSurveyView: {currentExerciseId?: number; workoutDayId: number};
 };
 
 export type HomeStackParamList = {
@@ -403,6 +403,7 @@ const getEnabledTabs = (planAlias: string): TabKey[] => {
       return ["home", "meal", "profile"];
     case "starter+meal":
     case "master+meal":
+    case "90-day-transformation":
       return ["home", "meal", "workout", "profile"];
     default:
       return ["home", "meal", "workout", "profile"];

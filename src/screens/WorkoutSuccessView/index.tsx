@@ -11,6 +11,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NavigationProp, RouteProp} from '@react-navigation/native';
 import type {MainStackParamList, WorkoutFlowParamList} from '../../navigation/MainStack';
 import {getRestLabel} from '../../utils/restTime';
+import {useAppSelector} from '../../store';
 
 const ACCENT = '#68FE00';
 const BACKGROUND = '#171717';
@@ -18,7 +19,26 @@ const BACKGROUND = '#171717';
 const WorkoutSuccessView = () => {
   const navigation = useNavigation<NavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProp<WorkoutFlowParamList, 'WorkoutSuccessView'>>();
-  const {exercise} = route.params;
+  const {exercise, workoutCompleted} = route.params;
+  const {fitnessPlan} = useAppSelector(state => state.home);
+
+  const nextExercise = (() => {
+    for (const day of fitnessPlan?.days ?? []) {
+      const dayExercises = (day.sections ?? []).flatMap(section => section.exercises ?? []);
+      const currentIndex = dayExercises.findIndex(item => item.id === exercise.id);
+      if (currentIndex !== -1) {
+        const next = dayExercises.slice(currentIndex + 1).find(item => !item.is_completed);
+        if (!next) return null;
+        const section = day.sections?.find(item => item.exercises?.some(candidate => candidate.id === next.id));
+        return {
+          exercise: next,
+          sectionName: section?.section_name,
+          hasVideoAccess: fitnessPlan?.has_video_access === true,
+        };
+      }
+    }
+    return null;
+  })();
 
   const navigateHome = () => {
     const routeNames = navigation.getState?.()?.routeNames || [];
@@ -43,6 +63,21 @@ const WorkoutSuccessView = () => {
     });
   };
 
+  const continueWorkout = () => {
+    if (workoutCompleted) {
+      navigation.navigate('WorkoutSurveyView', {
+        currentExerciseId: exercise.id,
+        workoutDayId: exercise.workout_day_id as number,
+      });
+      return;
+    }
+    if (nextExercise) {
+      navigation.navigate('ExercisePlayerView', nextExercise);
+      return;
+    }
+    navigateHome();
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
@@ -54,7 +89,7 @@ const WorkoutSuccessView = () => {
 
         <View style={styles.content}>
           <Text style={styles.title}>Congratulations!</Text>
-          <Text style={styles.subtitle}>You have completed the workout!</Text>
+          <Text style={styles.subtitle}>You have completed this exercise!</Text>
 
           <View style={styles.statsRow}>
             <StatCard icon="exercise" label={exercise.exercise_name || 'Completed'} />
@@ -71,10 +106,10 @@ const WorkoutSuccessView = () => {
           </View>
 
           <TouchableOpacity 
-            onPress={() => navigation.navigate('WorkoutSurveyView', {currentExerciseId: exercise.id})}
+            onPress={continueWorkout}
             style={styles.primaryButton}
           >
-            <Text style={styles.primaryButtonText}>Next Workout</Text>
+            <Text style={styles.primaryButtonText}>{workoutCompleted ? 'Review workout' : 'Next exercise'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
